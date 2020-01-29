@@ -336,3 +336,11 @@ def test_matrix_gate():
     assert X == gate3
     assert str(gate3) == "MatrixGate([[0, 1], [1, 0]])"
     assert hash(gate3) == hash("MatrixGate([[0, 1], [1, 0]])")
+
+def test_is_commutable():
+    gate1 = _basics.BasicRotationGate(math.pi)
+    gate2 = _basics.MatrixGate()
+    gate3 = _basics.BasicRotationGate(math.pi)
+    assert gate1.is_commutable(gate2) == False 
+    with pytest.raises(_basics.IsCommutableFoundIdenticalGate):
+        gate1.is_commutable(gate3)

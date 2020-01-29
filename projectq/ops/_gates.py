@@ -226,6 +226,11 @@ class Rx(BasicRotationGate):
                           [-1j * math.sin(0.5 * self.angle),
                            math.cos(0.5 * self.angle)]])
 
+    def is_commutable(self, other):
+        if (other.__class__ == Rxx):
+            return True
+        else:
+            return super().is_commutable(other)
 
 class Ry(BasicRotationGate):
     """ RotationY gate class """
@@ -253,6 +258,12 @@ class Rxx(BasicRotationGate):
                           [0, cmath.cos( .5 * self.angle), -1j*cmath.sin(.5 * self.angle), 0],
                           [0, -1j*cmath.sin(.5 * self.angle), cmath.cos( .5 * self.angle), 0],
                           [-1j*cmath.sin(.5 * self.angle), 0, 0, cmath.cos( .5 * self.angle)]])
+
+    def is_commutable(self, other):
+        if (other.__class__ == Rx):
+            return True
+        else:
+            return super().is_commutable(other)
 
 
 class Ryy(BasicRotationGate):

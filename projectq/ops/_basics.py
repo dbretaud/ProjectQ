@@ -61,6 +61,12 @@ class NotInvertible(Exception):
     """
     pass
 
+class IsCommutableFoundIdenticalGate(Exception):
+    """
+    Exception thrown when attempting to perform is_commutable on an identical
+    gate.
+    """
+    pass
 
 class BasicGate(object):
     """
@@ -239,6 +245,12 @@ class BasicGate(object):
 
     def is_identity(self):
         return False
+    
+    def is_commutable(self, other):
+        if (self == other):
+            raise IsCommutableFoundIdenticalGate
+        return False
+            
 
 
 class MatrixGate(BasicGate):
@@ -435,6 +447,9 @@ class BasicRotationGate(BasicGate):
         Return True if the gate is equivalent to an Identity gate
         """
         return self.angle == 0. or self.angle == 4 * math.pi
+    
+    def is_commutable(self, other):
+        return super().is_commutable(other)
 
 
 class BasicPhaseGate(BasicGate):

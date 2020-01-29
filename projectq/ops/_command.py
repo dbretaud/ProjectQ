@@ -150,6 +150,19 @@ class Command(object):
             True if the gate is equivalent to an Identity gate, False otherwise
         """
         return projectq.ops.is_identity(self.gate)
+    
+    def is_commutable(self, other):
+        """
+        Evaluate if this command is commutable with another command.
+        Returns:
+            True if the other command concerns the same qubits and
+            the gates are commutable. 
+        """
+        if (overlap(self.all_qubits, other.all_qubits)==0):
+            return False
+        else:
+            return self.gate.is_commutable(other.gate)
+
 
     def get_merged(self, other):
         """
@@ -317,3 +330,25 @@ class Command(object):
             qstring = qstring[:-2] + " )"
         cstring = "C" * len(ctrlqubits)
         return cstring + self.gate.to_string(symbols) + " | " + qstring
+
+def overlap(tuple1, tuple2):
+    """ 
+    Takes two tuples of lists and turns them into, flattens
+    them and counts the number of common elements. Intended
+    to be used to see if two commands have qubits or control
+    qubits in common. 
+
+    i.e.    command1.all_qubits = [[control_qubits], [qubits]]
+            command2.all_qubits = [[control_qubits], [qubits]]  
+            overlap(command1, command2) = 4
+            means command1 and command2 have 4 qubits or control
+            qubits in common. 
+
+    """
+    flat_tuple1 = [item for sublist in tuple1 for item in sublist]
+    flat_tuple2 = [item for sublist in tuple2 for item in sublist]
+    n=0
+    for element in flat_tuple1:
+        if element in flat_tuple2:
+            n+=1
+    return n
