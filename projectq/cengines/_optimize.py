@@ -26,7 +26,6 @@ class LocalOptimizer(BasicEngine):
     LocalOptimizer is a compiler engine which optimizes locally (merging
     rotations, cancelling gates with their inverse) in a local window of user-
     defined size.
-
     It stores all commands in a dict of lists, where each qubit has its own
     gate pipeline. After adding a gate, it tries to merge / cancel successive
     gates using the get_merged and get_inverse functions of the gate (if
@@ -36,7 +35,6 @@ class LocalOptimizer(BasicEngine):
     def __init__(self, m=5):
         """
         Initialize a LocalOptimizer object.
-
         Args:
             m (int): Number of gates to cache per qubit, before sending on the
                 first gate.
@@ -87,7 +85,6 @@ class LocalOptimizer(BasicEngine):
         """
         Return all indices of a command, each index corresponding to the
         command's index in one of the qubits' command lists.
-
         Args:
             idx (int): qubit index
             i (int): command position in qubit idx's command list
@@ -114,32 +111,43 @@ class LocalOptimizer(BasicEngine):
             indices.append(identical_indices[num_identical_to_skip])
         return indices
 
+    def _delete_command(self, idx, command_idx):
+        """ 
+        Deletes the command at self._l[idx][command_idx] accounting 
+        for all qubits in the optimizer dictionary. 
+        """
+        # List of the indices of the qubits that are involved
+        # in command
+        qubitids = [qb.id for sublist in self._l[idx][command_idx].all_qubits
+                for qb in sublist]
+        # List of the command indices corresponding to the position
+        # of this command on each qubit id 
+        commandidcs = self._get_gate_indices(idx, command_idx, qubitids)
+        for j in range(len(qubitids)):
+            try:
+                new_list = (self._l[qubitids[j]][0:commandidcs[j]] +
+                            self._l[qubitids[j]][commandidcs[j]+1:])
+            except: 
+                # If there are no more commands after that being deleted.
+                new_list = (self._l[qubitids[j]][0:commandidcs[j]])
+            self._l[qubitids[j]] = new_list
+
     def _optimize(self, idx, lim=None):
         """
         Try to remove identity gates using the is_identity function, then merge or even cancel successive gates using the get_merged and
         get_inverse functions of the gate (see, e.g., BasicRotationGate).
-
         It does so for all qubit command lists.
         """
         # loop over all qubit indices
         i = 0
-        new_gateloc = 0
         limit = len(self._l[idx])
         if lim is not None:
             limit = lim
-            new_gateloc = limit
 
         while i < limit - 1:
             # can be dropped if the gate is equivalent to an identity gate
             if self._l[idx][i].is_identity():
-                # determine index of this gate on all qubits
-                qubitids = [qb.id for sublist in self._l[idx][i].all_qubits
-                            for qb in sublist]
-                gid = self._get_gate_indices(idx, i, qubitids)
-                for j in range(len(qubitids)):
-                    new_list = (self._l[qubitids[j]][0:gid[j]] +
-                                self._l[qubitids[j]][gid[j] +1:])
-                self._l[qubitids[j]] = new_list
+                self._delete_command(idx, i)
                 i = 0
                 limit -= 1
                 continue
