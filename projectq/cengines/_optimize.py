@@ -132,6 +132,29 @@ class LocalOptimizer(BasicEngine):
                 new_list = (self._l[qubitids[j]][0:commandidcs[j]])
             self._l[qubitids[j]] = new_list
 
+    def _get_erase(self, qubitids, commandidcs, inverse_command):
+        """
+        To determine whether inverse commands should be cancelled
+        with one another. i.e. the commands between them are all
+        commutable.
+        """
+        erase = True
+        for j in range(len(qubitids)):
+            # Check that any gates between current gate and inverse
+            # gate are all commutable
+            this_command = self._l[qubitids[j]][commandidcs[j]]
+            x=1
+            future_command = self._l[qubitids[j]][commandidcs[j]+x]
+            while (future_command!=inverse_command):
+                if (this_command.is_commutable(future_command)):
+                    x+=1
+                    erase = True
+                else:
+                    erase = False
+                    break
+        return erase
+
+
     def _optimize(self, idx, lim=None):
         """
         Try to remove identity gates using the is_identity function, then merge or even cancel successive gates using the get_merged and
@@ -145,58 +168,64 @@ class LocalOptimizer(BasicEngine):
             limit = lim
 
         while i < limit - 1:
-            # can be dropped if the gate is equivalent to an identity gate
-            if self._l[idx][i].is_identity():
+            command_i = self._l[idx][i]
+            command_i_plus_1 = self._l[idx][i+1]
+            # Delete command i if it is equivalent to identity
+            if command_i.is_identity():
                 self._delete_command(idx, i)
                 i = 0
                 limit -= 1
                 continue
 
-            # can be dropped if two in a row are self-inverses
+            # Delete commands i and i+1 if they are inverses of one another
             inv = self._l[idx][i].get_inverse()
 
-            if inv == self._l[idx][i + 1]:
-                # determine index of this gate on all qubits
-                qubitids = [qb.id for sublist in self._l[idx][i].all_qubits
+            if inv == command_i_plus_1:
+                # List of the indices of the qubits that are involved
+                # in command
+                qubitids = [qb.id for sublist in command_i.all_qubits
                             for qb in sublist]
-                gid = self._get_gate_indices(idx, i, qubitids)
-                # check that there are no other gates between this and its
+                # List of the command indices corresponding to the position
+                # of this command on each qubit id 
+                commandidcs = self._get_gate_indices(idx, i, qubitids)
+                # Check that there are no other gates between this and its
                 # inverse on any of the other qubits involved
                 erase = True
                 for j in range(len(qubitids)):
-                    erase *= (inv == self._l[qubitids[j]][gid[j] + 1])
+                    erase *= (inv == self._l[qubitids[j]][commandidcs[j] + 1])
 
-                # drop these two gates if possible and goto next iteration
+                # Drop these two gates if possible and goto next iteration
                 if erase:
                     for j in range(len(qubitids)):
-                        new_list = (self._l[qubitids[j]][0:gid[j]] +
-                                    self._l[qubitids[j]][gid[j] + 2:])
+                        new_list = (self._l[qubitids[j]][0:commandidcs[j]] +
+                                    self._l[qubitids[j]][commandidcs[j] + 2:])
                         self._l[qubitids[j]] = new_list
                     i = 0
                     limit -= 2
                     continue
 
-            # gates are not each other's inverses --> check if they're
-            # mergeable
+            # Merge commands i and i+1 if they are mergeable
             try:
-                merged_command = self._l[idx][i].get_merged(
-                    self._l[idx][i + 1])
+                merged_command = command_i.get_merged(
+                    command_i_plus_1)
                 # determine index of this gate on all qubits
-                qubitids = [qb.id for sublist in self._l[idx][i].all_qubits
+                qubitids = [qb.id for sublist in command_i.all_qubits
                             for qb in sublist]
-                gid = self._get_gate_indices(idx, i, qubitids)
+                commandidcs = self._get_gate_indices(idx, i, qubitids)
 
                 merge = True
+                # Check that the mergeable command is the next command for 
+                # all the qubits involved
                 for j in range(len(qubitids)):
-                    m = self._l[qubitids[j]][gid[j]].get_merged(
-                        self._l[qubitids[j]][gid[j] + 1])
+                    m = self._l[qubitids[j]][commandidcs[j]].get_merged(
+                        self._l[qubitids[j]][commandidcs[j] + 1])
                     merge *= (m == merged_command)
 
                 if merge:
                     for j in range(len(qubitids)):
-                        self._l[qubitids[j]][gid[j]] = merged_command
-                        new_list = (self._l[qubitids[j]][0:gid[j] + 1] +
-                                    self._l[qubitids[j]][gid[j] + 2:])
+                        self._l[qubitids[j]][commandidcs[j]] = merged_command
+                        new_list = (self._l[qubitids[j]][0:commandidcs[j] + 1] +
+                                    self._l[qubitids[j]][commandidcs[j] + 2:])
                         self._l[qubitids[j]] = new_list
                     i = 0
                     limit -= 1
