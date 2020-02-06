@@ -136,18 +136,19 @@ class LocalOptimizer(BasicEngine):
         """
         To determine whether inverse commands should be cancelled
         with one another. i.e. the commands between them are all
-        commutable.
+        commutable, for each qubit involved in the command.
         """
         erase = True
+        x=1
         for j in range(len(qubitids)):
             # Check that any gates between current gate and inverse
             # gate are all commutable
             this_command = self._l[qubitids[j]][commandidcs[j]]
-            x=1
             future_command = self._l[qubitids[j]][commandidcs[j]+x]
             while (future_command!=inverse_command):
                 if (this_command.is_commutable(future_command)):
                     x+=1
+                    future_command = self._l[qubitids[j]][commandidcs[j]+x]
                     erase = True
                 else:
                     erase = False
@@ -170,6 +171,7 @@ class LocalOptimizer(BasicEngine):
         while i < limit - 1:
             command_i = self._l[idx][i]
             command_i_plus_1 = self._l[idx][i+1]
+
             # Delete command i if it is equivalent to identity
             if command_i.is_identity():
                 self._delete_command(idx, i)
@@ -178,7 +180,7 @@ class LocalOptimizer(BasicEngine):
                 continue
 
             # Delete commands i and i+1 if they are inverses of one another
-            inv = self._l[idx][i].get_inverse()
+            inv = command_i.get_inverse()
 
             if inv == command_i_plus_1:
                 # List of the indices of the qubits that are involved
@@ -188,18 +190,14 @@ class LocalOptimizer(BasicEngine):
                 # List of the command indices corresponding to the position
                 # of this command on each qubit id 
                 commandidcs = self._get_gate_indices(idx, i, qubitids)
-                # Check that there are no other gates between this and its
+                # Check that there are only commutable gates between this and its
                 # inverse on any of the other qubits involved
-                erase = True
-                for j in range(len(qubitids)):
-                    erase *= (inv == self._l[qubitids[j]][commandidcs[j] + 1])
+                erase = self._get_erase(qubitids, commandidcs, inv)
 
                 # Drop these two gates if possible and goto next iteration
                 if erase:
-                    for j in range(len(qubitids)):
-                        new_list = (self._l[qubitids[j]][0:commandidcs[j]] +
-                                    self._l[qubitids[j]][commandidcs[j] + 2:])
-                        self._l[qubitids[j]] = new_list
+                    self._delete_command(idx, i+1)
+                    self._delete_command(idx, i)
                     i = 0
                     limit -= 2
                     continue
@@ -232,7 +230,37 @@ class LocalOptimizer(BasicEngine):
                     continue
             except NotMergeable:
                 pass  # can't merge these two commands.
+            
+            x = 1
+            while (i+x < limit-1):
+                if self._l[idx][i].is_commutable(self._l[idx][i+x]):
+                    if inv == self._l[idx][i+x+1]:
+                        # List of the indices of the qubits that are involved
+                        # in command
+                        qubitids = [qb.id for sublist in self._l[idx][i].all_qubits
+                            for qb in sublist]
+                        # List of the command indices corresponding to the position
+                        # of this command on each qubit id 
+                        commandidcs = self._get_gate_indices(idx, i, qubitids)
+                        erase = True
+                        erase = self._get_erase(qubitids, commandidcs, inv)
+                        if erase:
+                        # Delete the inverse commands. Delete the later
+                        # one first so the first index doesn't 
+                        # change before you delete it.
+                            self._delete_command(idx, i+x+1)
+                            self._delete_command(idx, i)
+                            i = 0
+                            limit -= 2
+                        break
+                    else:
+                        x+=1
+                        continue
+                else:
+                    break
+                
 
+            
             i += 1  # next iteration: look at next gate
         return limit
 

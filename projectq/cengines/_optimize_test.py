@@ -15,15 +15,13 @@
 """Tests for projectq.cengines._optimize.py."""
 
 import pytest
-
 import math
 from projectq import MainEngine
 from projectq.cengines import DummyEngine
-from projectq.ops import (CNOT, H, Rx, Ry, AllocateQubitGate, X,
+from projectq.ops import (CNOT, H, Rx, Ry, Rxx, Measure, AllocateQubitGate, X,
                           FastForwardingGate, ClassicalInstructionGate)
 
 from projectq.cengines import _optimize
-
 
 def test_local_optimizer_caching():
     local_optimizer = _optimize.LocalOptimizer(m=4)
@@ -114,6 +112,32 @@ def test_local_optimizer_cancel_inverse():
     assert received_commands[1].qubits[0][0].id == qb1[0].id
     assert received_commands[1].control_qubits[0].id == qb0[0].id
 
+def test_local_optimizer_cancel_separated_inverse():
+    # Tests the situation where an inverse of a command is found 
+    # on the next qubit, but another qubit involved is separated 
+    # from the inverse by only commutable gates.
+    local_optimizer = _optimize.LocalOptimizer(m=5)
+    backend = DummyEngine(save_commands=True)
+    eng = MainEngine(backend=backend, engine_list=[local_optimizer])
+    qb0 = eng.allocate_qubit()
+    qb1 = eng.allocate_qubit()
+    assert len(backend.received_commands) == 0
+    Rxx(math.pi) | (qb0, qb1)
+    Rx(0.3) | qb1
+    Rxx(-math.pi) | (qb0, qb1)
+    assert len(backend.received_commands) == 0
+    Measure | qb0
+    Measure | qb1
+    eng.flush()
+    received_commands = []
+    # Remove Allocate and Deallocate gates
+    for cmd in backend.received_commands:
+        if not (isinstance(cmd.gate, FastForwardingGate) or
+                isinstance(cmd.gate, ClassicalInstructionGate)):
+            received_commands.append(cmd)
+    assert len(received_commands) == 1
+    assert received_commands[0].gate == Rx(0.3)
+    assert received_commands[0].qubits[0][0].id == qb1[0].id
 
 def test_local_optimizer_mergeable_gates():
     local_optimizer = _optimize.LocalOptimizer(m=4)
@@ -147,3 +171,28 @@ def test_local_optimizer_identity_gates():
     # Expect allocate, one Rx gate, and flush gate
     assert len(backend.received_commands) == 3
     assert backend.received_commands[1].gate == Rx(0.5)
+
+def test_local_optimizer_commutable_gates():
+    local_optimizer = _optimize.LocalOptimizer(m=5)
+    backend = DummyEngine(save_commands=True)
+    eng = MainEngine(backend=backend, engine_list=[local_optimizer])
+    # Test that inverse gates separated by two commutable gates 
+    # cancel successfully
+    qb0 = eng.allocate_qubit()
+    qb1 = eng.allocate_qubit()
+    Rx(-math.pi) | qb0
+    Rxx(0.3) | (qb0, qb1)
+    Rxx(0.5) | (qb0, qb1)
+    Rx(math.pi) | qb0
+    assert len(backend.received_commands) == 0
+    eng.flush()
+    assert len(backend.received_commands) == 4
+    received_commands = []
+    # Remove Allocate and Deallocate gates
+    for cmd in backend.received_commands:
+        if not (isinstance(cmd.gate, FastForwardingGate) or
+                isinstance(cmd.gate, ClassicalInstructionGate)):
+            received_commands.append(cmd)
+    assert len(received_commands) == 1
+
+test_local_optimizer_commutable_gates()
