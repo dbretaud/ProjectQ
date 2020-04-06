@@ -23,7 +23,7 @@ from projectq.ops import FlushGate, FastForwardingGate, NotMergeable
 
 class LocalOptimizer(BasicEngine):
     """
-    LocalOptimizer is a compiler engine which optimizes locally (merging
+    LocalOptimizer is a compiler engine which optimizes locally (e.g. merging
     rotations, cancelling gates with their inverse) in a local window of user-
     defined size.
     It stores all commands in a dict of lists, where each qubit has its own
@@ -43,17 +43,16 @@ class LocalOptimizer(BasicEngine):
         self._l = dict()  # dict of lists containing operations for each qubit
         self._m = m  # wait for m gates before sending on
 
-    # sends n gate operations of the qubit with index idx
     def _send_qubit_pipeline(self, idx, n):
         """
         Send n gate operations of the qubit with index idx to the next engine.
         """
-        il = self._l[idx]  # temporary label for readability
-        for i in range(min(n, len(il))):  # loop over first n operations
-            # send all gates before n-qubit gate for other qubits involved
+        cmd_list = self._l[idx]  # command list for qubit idx
+        for i in range(min(n, len(cmd_list))):  # loop over first n commands
+            # send all gates before nth gate for other qubits involved
             # --> recursively call send_helper
             other_involved_qubits = [qb
-                                     for qreg in il[i].all_qubits
+                                     for qreg in cmd_list[i].all_qubits
                                      for qb in qreg
                                      if qb.id != idx]
             for qb in other_involved_qubits:
@@ -61,14 +60,13 @@ class LocalOptimizer(BasicEngine):
                 try:
                     gateloc = 0
                     # find location of this gate within its list
-                    while self._l[Id][gateloc] != il[i]:
+                    while self._l[Id][gateloc] != cmd_list[i]:
                         gateloc += 1
 
                     gateloc = self._optimize(Id, gateloc)
-
                     # flush the gates before the n-qubit gate
                     self._send_qubit_pipeline(Id, gateloc)
-                    # delete the n-qubit gate, we're taking care of it
+                    # delete the nth gate, we're taking care of it
                     # and don't want the other qubit to do so
                     self._l[Id] = self._l[Id][1:]
                 except IndexError:
@@ -77,7 +75,7 @@ class LocalOptimizer(BasicEngine):
 
             # all qubits that need to be flushed have been flushed
             # --> send on the n-qubit gate
-            self.send([il[i]])
+            self.send([cmd_list[i]])
         # n operations have been sent on --> resize our gate list
         self._l[idx] = self._l[idx][n:]
 
@@ -132,11 +130,33 @@ class LocalOptimizer(BasicEngine):
                 new_list = (self._l[qubitids[j]][0:commandidcs[j]])
             self._l[qubitids[j]] = new_list
 
+    def _replace_command(self, idx, command_idx, new_command):
+        """ 
+        Replaces the command at self._l[idx][command_idx] accounting 
+        for all qubits in the optimizer dictionary. 
+        """
+        # List of the indices of the qubits that are involved
+        # in command
+        qubitids = [qb.id for sublist in self._l[idx][command_idx].all_qubits
+                for qb in sublist]
+        # List of the command indices corresponding to the position
+        # of this command on each qubit id 
+        commandidcs = self._get_gate_indices(idx, command_idx, qubitids)
+        for j in range(len(qubitids)):
+            try:
+                new_list = (self._l[qubitids[j]][0:commandidcs[j]] 
+                            + [new_command]
+                            + self._l[qubitids[j]][commandidcs[j]+1:])
+            except: 
+                # If there are no more commands after that being replaced.
+                new_list = (self._l[qubitids[j]][0:commandidcs[j]] + [new_command])
+            self._l[qubitids[j]] = new_list
+
     def _get_erase(self, qubitids, commandidcs, inverse_command):
         """
-        To determine whether inverse commands should be cancelled
-        with one another. i.e. the commands between them are all
-        commutable, for each qubit involved in the command.
+        Determines whether inverse commands should be cancelled
+        with one another. i.e. the commands between the pair are all
+        commutable for each qubit involved in the command.
         """
         erase = True
         x=1
@@ -155,10 +175,42 @@ class LocalOptimizer(BasicEngine):
                     break
         return erase
 
+    def _get_merge_boolean(self, qubitids, commandidcs, merged_command):
+        """
+        To determine whether mergeable commands should be merged
+        with one another. i.e. the commands between them are all
+        commutable, for each qubit involved in the command.
+        """
+        merge = True
+        for j in range(len(qubitids)):
+            # Check that any gates between current gate and mergeable
+            # gate are commutable
+            this_command = self._l[qubitids[j]][commandidcs[j]]
+            possible_command = None
+            merge = True
+            x=1
+            while (possible_command!=merged_command):
+                future_command = self._l[qubitids[j]][commandidcs[j]+x]
+                try:
+                    possible_command = this_command.get_merged(future_command)
+                except:
+                    pass
+                if (possible_command==merged_command):
+                    merge = True
+                    break
+                if (this_command.is_commutable(future_command)): 
+                    x+=1
+                    merge = True
+                    continue
+                else:
+                    merge = False
+                    break
+            return merge
 
     def _optimize(self, idx, lim=None):
         """
-        Try to remove identity gates using the is_identity function, then merge or even cancel successive gates using the get_merged and
+        Try to remove identity gates using the is_identity function, 
+        then merge or even cancel successive gates using the get_merged and
         get_inverse functions of the gate (see, e.g., BasicRotationGate).
         It does so for all qubit command lists.
         """
@@ -210,21 +262,14 @@ class LocalOptimizer(BasicEngine):
                 qubitids = [qb.id for sublist in command_i.all_qubits
                             for qb in sublist]
                 commandidcs = self._get_gate_indices(idx, i, qubitids)
-
                 merge = True
-                # Check that the mergeable command is the next command for 
-                # all the qubits involved
-                for j in range(len(qubitids)):
-                    m = self._l[qubitids[j]][commandidcs[j]].get_merged(
-                        self._l[qubitids[j]][commandidcs[j] + 1])
-                    merge *= (m == merged_command)
-
+                merge = self._get_merge_boolean(qubitids, commandidcs, 
+                                                        merged_command)
                 if merge:
-                    for j in range(len(qubitids)):
-                        self._l[qubitids[j]][commandidcs[j]] = merged_command
-                        new_list = (self._l[qubitids[j]][0:commandidcs[j] + 1] +
-                                    self._l[qubitids[j]][commandidcs[j] + 2:])
-                        self._l[qubitids[j]] = new_list
+                    # Delete command i+1 before looking at command i
+                    # because i+1 will not affect index of i
+                    self._delete_command(idx, i+1)
+                    self._replace_command(idx, i, merged_command)
                     i = 0
                     limit -= 1
                     continue
@@ -234,6 +279,8 @@ class LocalOptimizer(BasicEngine):
             x = 1
             while (i+x < limit-1):
                 if self._l[idx][i].is_commutable(self._l[idx][i+x]):
+                    # Gate i is commutable with each gate up to i+x, so 
+                    # check if i and i+x+1 can be cancelled
                     if inv == self._l[idx][i+x+1]:
                         # List of the indices of the qubits that are involved
                         # in command
@@ -252,15 +299,36 @@ class LocalOptimizer(BasicEngine):
                             self._delete_command(idx, i)
                             i = 0
                             limit -= 2
-                        break
-                    else:
+                            break
                         x+=1
                         continue
+                    # Gate i is commutable with each gate up to i+x, so 
+                    # check if i and i+x+1 can be merged
+                    try:
+                        merged_command = self._l[idx][i].get_merged(self._l[idx][i+x+1])
+                        # determine index of this gate on all qubits
+                        qubitids = [qb.id for sublist in self._l[idx][i].all_qubits
+                                    for qb in sublist]
+                        commandidcs = self._get_gate_indices(idx, i, qubitids)
+                        merge = True
+                        merge = self._get_merge_boolean(qubitids, commandidcs, 
+                                                                merged_command)
+                        if merge:
+                            # Delete command i+x+1 first because i+x+1
+                            # will not affect index of i
+                            self._delete_command(idx, i+x+1)
+                            self._replace_command(idx, i, merged_command)
+                            i = 0
+                            limit -= 1
+                            break
+                    except NotMergeable:
+                        pass  # can't merge these two commands.                        
+                        
+                    x+=1
+                    continue
                 else:
                     break
                 
-
-            
             i += 1  # next iteration: look at next gate
         return limit
 

@@ -232,6 +232,7 @@ class Rx(BasicRotationGate):
         else:
             return super().is_commutable(other)
 
+
 class Ry(BasicRotationGate):
     """ RotationY gate class """
     @property
@@ -241,6 +242,12 @@ class Ry(BasicRotationGate):
                           [math.sin(0.5 * self.angle),
                            math.cos(0.5 * self.angle)]])
 
+    def is_commutable(self, other):
+        if (other.__class__ == Ryy):
+            return True
+        else:
+            return super().is_commutable(other)
+
 
 class Rz(BasicRotationGate):
     """ RotationZ gate class """
@@ -249,9 +256,20 @@ class Rz(BasicRotationGate):
         return np.matrix([[cmath.exp(-.5 * 1j * self.angle), 0],
                           [0, cmath.exp(.5 * 1j * self.angle)]])
 
+    def is_commutable(self, other):
+        if (other.__class__ == Rzz):
+            return True
+        else:
+            return super().is_commutable(other)
+
 
 class Rxx(BasicRotationGate):
     """ RotationXX gate class """
+
+    def __init__(self, angle):
+        BasicRotationGate.__init__(self, angle)
+        self.interchangeable_qubit_indices = [[0, 1]]
+
     @property
     def matrix(self):
         return np.matrix([[cmath.cos(.5 * self.angle), 0, 0, -1j*cmath.sin(.5 * self.angle)],
@@ -268,6 +286,11 @@ class Rxx(BasicRotationGate):
 
 class Ryy(BasicRotationGate):
     """ RotationYY gate class """
+
+    def __init__(self, angle):
+        BasicRotationGate.__init__(self, angle)
+        self.interchangeable_qubit_indices = [[0, 1]]
+
     @property
     def matrix(self):
         return np.matrix([[cmath.cos(.5 * self.angle), 0, 0, 1j*cmath.sin(.5 * self.angle)],
@@ -275,15 +298,32 @@ class Ryy(BasicRotationGate):
                           [0, -1j*cmath.sin(.5 * self.angle), cmath.cos( .5 * self.angle), 0],
                           [1j*cmath.sin(.5 * self.angle), 0, 0, cmath.cos( .5 * self.angle)]])
 
+    def is_commutable(self, other):
+        if (other.__class__ == Ry):
+            return True
+        else:
+            return super().is_commutable(other)
+
 
 class Rzz(BasicRotationGate):
     """ RotationZZ gate class """
+
+    def __init__(self, angle):
+        BasicRotationGate.__init__(self, angle)
+        self.interchangeable_qubit_indices = [[0, 1]]
+        
     @property
     def matrix(self):
         return np.matrix([[cmath.exp(-.5 * 1j * self.angle), 0, 0, 0],
                           [0, cmath.exp( .5 * 1j * self.angle), 0, 0],
                           [0, 0, cmath.exp( .5 * 1j * self.angle), 0],
                           [0, 0, 0, cmath.exp(-.5 * 1j * self.angle)]])
+
+    def is_commutable(self, other):
+        if (other.__class__ == Rz):
+            return True
+        else:
+            return super().is_commutable(other)
 
 
 class R(BasicPhaseGate):
@@ -298,7 +338,7 @@ class FlushGate(FastForwardingGate):
     Flush gate (denotes the end of the circuit).
 
     Note:
-        All compiler engines (cengines) which cache/buffer gates are obligated
+        All compiler engines (cengines) with cache/buffer gates are obligated
         to flush and send all gates to the next compiler engine (followed by
         the flush command).
 

@@ -139,27 +139,38 @@ def test_rx(angle1, angle2):
     assert not gate1.is_commutable(gate3)
 
 
-
-@pytest.mark.parametrize("angle", [0, 0.2, 2.1, 4.1, 2 * math.pi,
+@pytest.mark.parametrize("angle1", [0, 0.2, 2.1, 4.1, 2 * math.pi,
                                    4 * math.pi])
-def test_ry(angle):
-    gate = _gates.Ry(angle)
-    expected_matrix = np.matrix([[math.cos(0.5 * angle),
-                                  -math.sin(0.5 * angle)],
-                                 [math.sin(0.5 * angle),
-                                  math.cos(0.5 * angle)]])
-    assert gate.matrix.shape == expected_matrix.shape
-    assert np.allclose(gate.matrix, expected_matrix)
-
-
-@pytest.mark.parametrize("angle", [0, 0.2, 2.1, 4.1, 2 * math.pi,
+@pytest.mark.parametrize("angle2", [4.1, 2.1, 0.2, 0, 2 * math.pi,
                                    4 * math.pi])
-def test_rz(angle):
-    gate = _gates.Rz(angle)
-    expected_matrix = np.matrix([[cmath.exp(-.5 * 1j * angle), 0],
-                                 [0, cmath.exp(.5 * 1j * angle)]])
-    assert gate.matrix.shape == expected_matrix.shape
-    assert np.allclose(gate.matrix, expected_matrix)
+def test_ry(angle1, angle2):
+    gate1 = _gates.Ry(angle1)
+    gate2 = _gates.Ryy(angle2)
+    gate3 = _gates.Rz(angle1)
+    expected_matrix = np.matrix([[math.cos(0.5 * angle1),
+                                  -math.sin(0.5 * angle1)],
+                                 [math.sin(0.5 * angle1),
+                                  math.cos(0.5 * angle1)]])
+    assert gate1.matrix.shape == expected_matrix.shape
+    assert np.allclose(gate1.matrix, expected_matrix)
+    assert gate1.is_commutable(gate2)
+    assert not gate1.is_commutable(gate3)
+
+
+@pytest.mark.parametrize("angle1", [0, 0.2, 2.1, 4.1, 2 * math.pi,
+                                   4 * math.pi])
+@pytest.mark.parametrize("angle2", [4.1, 2.1, 0.2, 0, 2 * math.pi,
+                                   4 * math.pi])
+def test_rz(angle1, angle2):
+    gate1 = _gates.Rz(angle1)
+    gate2 = _gates.Rzz(angle2)
+    gate3 = _gates.Rx(angle1)
+    expected_matrix = np.matrix([[cmath.exp(-.5 * 1j * angle1), 0],
+                                 [0, cmath.exp(.5 * 1j * angle1)]])
+    assert gate1.matrix.shape == expected_matrix.shape
+    assert np.allclose(gate1.matrix, expected_matrix)
+    assert gate1.is_commutable(gate2)
+    assert not gate1.is_commutable(gate3)
 
 
 @pytest.mark.parametrize("angle1", [0, 0.2, 2.1, 4.1, 2 * math.pi,
@@ -180,30 +191,49 @@ def test_rxx(angle1, angle2):
     assert gate1.is_commutable(gate2)
     assert not gate1.is_commutable(gate3)
     assert gate4.is_identity()
+    assert gate1.interchangeable_qubit_indices == [[0, 1]]
 
 
-@pytest.mark.parametrize("angle", [0, 0.2, 2.1, 4.1, 2 * math.pi,
+@pytest.mark.parametrize("angle1", [0, 0.2, 2.1, 4.1, 2 * math.pi,
                                    4 * math.pi])
-def test_ryy(angle):
-    gate = _gates.Ryy(angle)
-    expected_matrix = np.matrix([[cmath.cos(.5 * angle), 0, 0,  1j * cmath.sin(.5 * angle)],
-                                 [0, cmath.cos(.5 * angle), -1j * cmath.sin(.5 * angle), 0],
-                                 [0, -1j * cmath.sin(.5 * angle), cmath.cos(.5 * angle), 0],
-                                 [ 1j * cmath.sin(.5 * angle), 0, 0, cmath.cos(.5 * angle)]])
-    assert gate.matrix.shape == expected_matrix.shape
-    assert np.allclose(gate.matrix, expected_matrix)
-
-
-@pytest.mark.parametrize("angle", [0, 0.2, 2.1, 4.1, 2 * math.pi,
+@pytest.mark.parametrize("angle2", [4.1, 2.1, 0.2, 0, 2 * math.pi,
                                    4 * math.pi])
-def test_rzz(angle):
-    gate = _gates.Rzz(angle)
-    expected_matrix = np.matrix([[cmath.exp(-.5 * 1j * angle), 0, 0, 0],
-                                 [0, cmath.exp( .5 * 1j * angle), 0, 0],
-                                 [0, 0, cmath.exp( .5 * 1j * angle), 0],
-                                 [0, 0, 0, cmath.exp(-.5 * 1j * angle)]])
-    assert gate.matrix.shape == expected_matrix.shape
-    assert np.allclose(gate.matrix, expected_matrix)
+def test_ryy(angle1, angle2):
+    gate1 = _gates.Ryy(angle1)
+    gate2 = _gates.Ry(angle2)
+    gate3 = _gates.Rx(angle1)
+    gate4 = _gates.Ryy(0.0)
+    expected_matrix = np.matrix([[cmath.cos(.5 * angle1), 0, 0,  1j * cmath.sin(.5 * angle1)],
+                                 [0, cmath.cos(.5 * angle1), -1j * cmath.sin(.5 * angle1), 0],
+                                 [0, -1j * cmath.sin(.5 * angle1), cmath.cos(.5 * angle1), 0],
+                                 [ 1j * cmath.sin(.5 * angle1), 0, 0, cmath.cos(.5 * angle1)]])
+    assert gate1.matrix.shape == expected_matrix.shape
+    assert np.allclose(gate1.matrix, expected_matrix)
+    assert gate1.is_commutable(gate2)
+    assert not gate1.is_commutable(gate3)
+    assert gate4.is_identity()
+    assert gate1.interchangeable_qubit_indices == [[0, 1]]
+
+
+@pytest.mark.parametrize("angle1", [0, 0.2, 2.1, 4.1, 2 * math.pi,
+                                   4 * math.pi])
+@pytest.mark.parametrize("angle2", [4.1, 2.1, 0.2, 0, 2 * math.pi,
+                                   4 * math.pi])
+def test_rzz(angle1, angle2):
+    gate1 = _gates.Rzz(angle1)
+    gate2 = _gates.Rz(angle2)
+    gate3 = _gates.Ry(angle1)
+    gate4 = _gates.Rzz(0.0)
+    expected_matrix = np.matrix([[cmath.exp(-.5 * 1j * angle1), 0, 0, 0],
+                                 [0, cmath.exp( .5 * 1j * angle1), 0, 0],
+                                 [0, 0, cmath.exp( .5 * 1j * angle1), 0],
+                                 [0, 0, 0, cmath.exp(-.5 * 1j * angle1)]])
+    assert gate1.matrix.shape == expected_matrix.shape
+    assert np.allclose(gate1.matrix, expected_matrix)
+    assert gate1.is_commutable(gate2)
+    assert not gate1.is_commutable(gate3)
+    assert gate4.is_identity()
+    assert gate1.interchangeable_qubit_indices == [[0, 1]]
 
 
 @pytest.mark.parametrize("angle", [0, 0.2, 2.1, 4.1, 2 * math.pi])
