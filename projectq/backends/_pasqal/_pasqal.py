@@ -104,20 +104,15 @@ class PasqalBackend(BasicEngine):
         Args:
             cmd (Command): Command for which to check availability
         """
-        print('is_available_function')
         if get_control_count(cmd) == 0:
             if isinstance(cmd.gate, (Rx, Ry, Rz)):
                 return True
         if get_control_count(cmd) ==1:
-            print('gooooood 2qg?')
             print(cmd)
             if isinstance(cmd.gate, (CZ,)):
-                print('yes')
                 return True
-        if cmd.gate in (Measure, Allocate, Deallocate):
+        if cmd.gate in (Measure, Allocate, Barrier, Deallocate):
             return True
-        print('wrong gate')
-        print(cmd)
         return False
 
     def _reset(self):
@@ -164,14 +159,16 @@ class PasqalBackend(BasicEngine):
                 self._mapper.append(qb_id)
             self._measured_ids += [logical_id]
             return
-        elif gate == Z and get_control_count(cmd) == 1:
+        elif gate == Z and get_control_count(cmd) == 1 or gate == CZ:
+            qubit = cmd.qubits[0][0].id
             new_moment,moment_number=self._get_moment(gate,qubit)
             self._buffer_sq_id[cmd.control_qubits[0].id].append([moment_number,gate])
             self._buffer_sq_id[cmd.qubits[0][0].id].append([moment_number,gate])
             ids = [cmd.control_qubits[0].id, cmd.qubits[0][0].id]
             instruction = self._get_2qg_moment_json(ids)
             self._circuit.append(instruction)
-        if isinstance(gate, (Rx, Ry, Rz)):
+            return
+        if isinstance(gate, (Rx, Ry)):
             qubit = cmd.qubits[0][0].id
             instruction = []
             new_moment,moment_number=self._get_moment(gate,qubit)
@@ -184,20 +181,18 @@ class PasqalBackend(BasicEngine):
                 instruction=self._add_1qg_moment_json(pm,gate,qubit)
                 self._circuit[moment_number]=instruction
             return
-        return
-        #raise Exception('Invalid command: ' + str(cmd))
+        raise Exception('Invalid command: ' + str(cmd))
 
-#TODO handle both single and multiple ids
-#TODO WTF WITH PARALLEL OPS????
-    def _get_moment(self,gate,id,parallel=False):
+
+    def _get_moment(self,gate,qid,parallel=True):
         if not parallel:
             return True,len(self._circuit)
         else:
-            if len(self._buffer_sq_id)==0:
+            if len(self._buffer_sq_id[qid])==0 or qid not in self._buffer_sq_id:
                 guessed_moment=0
             else:
-                guessed_moment=self._buffer_sq_id[qubit][-1][0]+1
-            if len(self._circuitmockup)>guessed_moment:
+                guessed_moment=self._buffer_sq_id[qid][-1][0]+1
+            if len(self._circuit)>guessed_moment:
                 return False,guessed_moment
             else:
                 return True,len(self._circuit)
