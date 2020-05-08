@@ -61,12 +61,14 @@ class NotInvertible(Exception):
     """
     pass
 
+
 class IsCommutableFoundIdenticalGate(Exception):
     """
     Exception thrown when attempting to perform is_commutable on an identical
     gate.
     """
     pass
+
 
 class BasicGate(object):
     """
@@ -107,6 +109,8 @@ class BasicGate(object):
                 self.set_interchangeable_qubit_indices([[0,1],[2,3,4]])
         """
         self.interchangeable_qubit_indices = []
+        self._commutable_gates = []
+        self._commutable_gate_lists = []
 
     def get_inverse(self):
         """
@@ -129,6 +133,9 @@ class BasicGate(object):
             NotMergeable: merging is not implemented
         """
         raise NotMergeable("BasicGate: No get_merged() implemented.")
+
+    def get_commutable_gate_lists(self):
+        return self._commutable_gate_lists
 
     @staticmethod
     def make_tuple_of_qureg(qubits):
@@ -245,13 +252,18 @@ class BasicGate(object):
 
     def is_identity(self):
         return False
-    
+
     def is_commutable(self, other):
         if (self == other):
             raise IsCommutableFoundIdenticalGate
-        return False
-            
-
+        for gate in self._commutable_gates:
+            if (other.__class__ == gate):
+                return 1
+        for gate_list in self._commutable_gate_lists:
+            if (other.__class__ == gate_list[0].__class__):
+                return 2
+        else:
+            return 0
 
 class MatrixGate(BasicGate):
     """
@@ -448,8 +460,6 @@ class BasicRotationGate(BasicGate):
         """
         return self.angle == 0. or self.angle == 4 * math.pi
     
-    def is_commutable(self, other):
-        return super().is_commutable(other)
 
 
 class BasicPhaseGate(BasicGate):

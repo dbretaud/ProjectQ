@@ -59,11 +59,12 @@ def apply_command(cmd):
 
 class Command(object):
     """
-    Class used as a container to store commands. If a gate is applied to
-    qubits, then the gate and qubits are saved in a command object. Qubits
-    are copied into WeakQubitRefs in order to allow early deallocation (would
-    be kept alive otherwise). WeakQubitRef qubits don't send deallocate gate
-    when destructed.
+    Class: 
+        used as a container to store commands. If a gate is applied to
+        qubits, then the gate and qubits are saved in a command object. Qubits
+        are copied into WeakQubitRefs in order to allow early deallocation (would
+        be kept alive otherwise). WeakQubitRef qubits don't send deallocate gate
+        when destructed.
 
     Attributes:
         gate: The gate to execute
@@ -159,10 +160,9 @@ class Command(object):
             the gates are commutable. 
         """
         if (overlap(self.all_qubits, other.all_qubits)==0):
-            return False
+            return 0
         else:
             return self.gate.is_commutable(other.gate)
-
 
     def get_merged(self, other):
         """

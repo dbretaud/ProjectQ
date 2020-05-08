@@ -152,13 +152,18 @@ class LocalOptimizer(BasicEngine):
                 new_list = (self._l[qubitids[j]][0:commandidcs[j]] + [new_command])
             self._l[qubitids[j]] = new_list
 
-    def _get_erase(self, qubitids, commandidcs, inverse_command):
+    def _get_erase(self, idx, qubitids, commandidcs, inverse_command):
         """
         Determines whether inverse commands should be cancelled
         with one another. i.e. the commands between the pair are all
         commutable for each qubit involved in the command.
         """
         erase = True
+        # We dont want to examine qubit idx because the optimizer has already
+        # checked that the gates between the current and mergeable gates are
+        # commutable (or a commutable list).
+        commandidcs.pop(qubitids.index(idx)) # Remove corresponding position of command for qubit idx from commandidcs
+        qubitids.remove(idx) # Remove qubitid representing the current qubit in optimizer
         x=1
         for j in range(len(qubitids)):
             # Check that any gates between current gate and inverse
@@ -175,13 +180,21 @@ class LocalOptimizer(BasicEngine):
                     break
         return erase
 
-    def _get_merge_boolean(self, qubitids, commandidcs, merged_command):
+    def _get_merge_boolean(self, idx, qubitids, commandidcs, merged_command):
         """
         To determine whether mergeable commands should be merged
         with one another. i.e. the commands between them are all
-        commutable, for each qubit involved in the command.
+        commutable, for each qubit involved in the command. It does
+        not check for the situation where commands are separated by
+        a commutable list. However other parts of the optimizer 
+        should find this situation.
         """
         merge = True
+        # We dont want to examine qubit idx because the optimizer has already
+        # checked that the gates between the current and mergeable gates are
+        # commutable (or a commutable list).
+        commandidcs.pop(qubitids.index(idx)) # Remove corresponding position of command for qubit idx from commandidcs
+        qubitids.remove(idx) # Remove qubitid representing the current qubit in optimizer
         for j in range(len(qubitids)):
             # Check that any gates between current gate and mergeable
             # gate are commutable
@@ -198,14 +211,14 @@ class LocalOptimizer(BasicEngine):
                 if (possible_command==merged_command):
                     merge = True
                     break
-                if (this_command.is_commutable(future_command)): 
+                if (this_command.is_commutable(future_command)==1): 
                     x+=1
                     merge = True
                     continue
                 else:
                     merge = False
                     break
-            return merge
+        return merge
 
     def _optimize(self, idx, lim=None):
         """
@@ -230,57 +243,15 @@ class LocalOptimizer(BasicEngine):
                 i = 0
                 limit -= 1
                 continue
-
-            # Delete commands i and i+1 if they are inverses of one another
-            inv = command_i.get_inverse()
-
-            if inv == command_i_plus_1:
-                # List of the indices of the qubits that are involved
-                # in command
-                qubitids = [qb.id for sublist in command_i.all_qubits
-                            for qb in sublist]
-                # List of the command indices corresponding to the position
-                # of this command on each qubit id 
-                commandidcs = self._get_gate_indices(idx, i, qubitids)
-                # Check that there are only commutable gates between this and its
-                # inverse on any of the other qubits involved
-                erase = self._get_erase(qubitids, commandidcs, inv)
-
-                # Drop these two gates if possible and goto next iteration
-                if erase:
-                    self._delete_command(idx, i+1)
-                    self._delete_command(idx, i)
-                    i = 0
-                    limit -= 2
-                    continue
-
-            # Merge commands i and i+1 if they are mergeable
-            try:
-                merged_command = command_i.get_merged(
-                    command_i_plus_1)
-                # determine index of this gate on all qubits
-                qubitids = [qb.id for sublist in command_i.all_qubits
-                            for qb in sublist]
-                commandidcs = self._get_gate_indices(idx, i, qubitids)
-                merge = True
-                merge = self._get_merge_boolean(qubitids, commandidcs, 
-                                                        merged_command)
-                if merge:
-                    # Delete command i+1 before looking at command i
-                    # because i+1 will not affect index of i
-                    self._delete_command(idx, i+1)
-                    self._replace_command(idx, i, merged_command)
-                    i = 0
-                    limit -= 1
-                    continue
-            except NotMergeable:
-                pass  # can't merge these two commands.
             
-            x = 1
-            while (i+x < limit-1):
-                if self._l[idx][i].is_commutable(self._l[idx][i+x]):
+            x = 0
+            i_x_com = True # This boolean should be updated to represent whether
+            # the gates following i, up to and including x, are commutable
+            while (i+x+1 < limit):
+                if i_x_com:
                     # Gate i is commutable with each gate up to i+x, so 
-                    # check if i and i+x+1 can be cancelled
+                    # check if i and i+x+1 can be cancelled or merged
+                    inv = self._l[idx][i].get_inverse()
                     if inv == self._l[idx][i+x+1]:
                         # List of the indices of the qubits that are involved
                         # in command
@@ -290,7 +261,7 @@ class LocalOptimizer(BasicEngine):
                         # of this command on each qubit id 
                         commandidcs = self._get_gate_indices(idx, i, qubitids)
                         erase = True
-                        erase = self._get_erase(qubitids, commandidcs, inv)
+                        erase = self._get_erase(idx, qubitids, commandidcs, inv)
                         if erase:
                         # Delete the inverse commands. Delete the later
                         # one first so the first index doesn't 
@@ -300,10 +271,8 @@ class LocalOptimizer(BasicEngine):
                             i = 0
                             limit -= 2
                             break
-                        x+=1
-                        continue
-                    # Gate i is commutable with each gate up to i+x, so 
-                    # check if i and i+x+1 can be merged
+                        # Unsuccessful in cancelling inverses, try merging.
+                        pass
                     try:
                         merged_command = self._l[idx][i].get_merged(self._l[idx][i+x+1])
                         # determine index of this gate on all qubits
@@ -311,7 +280,7 @@ class LocalOptimizer(BasicEngine):
                                     for qb in sublist]
                         commandidcs = self._get_gate_indices(idx, i, qubitids)
                         merge = True
-                        merge = self._get_merge_boolean(qubitids, commandidcs, 
+                        merge = self._get_merge_boolean(idx, qubitids, commandidcs, 
                                                                 merged_command)
                         if merge:
                             # Delete command i+x+1 first because i+x+1
@@ -322,13 +291,58 @@ class LocalOptimizer(BasicEngine):
                             limit -= 1
                             break
                     except NotMergeable:
-                        pass  # can't merge these two commands.                        
-                        
-                    x+=1
-                    continue
+                        # Unsuccessful in merging, see if gates are commutable
+                        pass  
+
+                    if(self._l[idx][i].is_commutable(self._l[idx][i+x+1]) == 1):
+                        x=x+1
+                        continue
+
+                    if(self._l[idx][i].is_commutable(self._l[idx][i+x+1]) == 2):
+                        # See if self._l[idx][i+x] is part of a gate list which 
+                        # is commutable with self._l[idx][i]
+                        # commutable_gate_list = a property of self._l[idx][i].gate
+                        commutable_gate_lists = self._l[idx][i].gate.get_commutable_gate_lists()
+                        # Keep a list of commutable_lists that start with 
+                        # self._l[idx][i+x]
+                        commutable_lists = []
+                        for gate_list in commutable_gate_lists:
+                            if (gate_list[0].__class__ == self._l[idx][i+x+1].gate.__class__):
+                                commutable_lists.append(gate_list)
+                        # Iterate through the next gates after i+x and delete 
+                        # any list in commutable_lists which doesn't contain
+                        # the same gates as self._l[idx][i+x] onwards
+                        y=0
+                        i_x_com=False
+                        while(len(commutable_lists)>0):
+                            # If no commutable lists, move on to next i
+                            for l in commutable_lists:
+                                if (y>(len(l)-1)):
+                                # Up to the yth term in l, we have checked
+                                # that self._l[idx][i+x+y] == l[y]
+                                # This means the list l is commutable 
+                                # with self._l[idx][i]
+                                    # Set x = x+len(l)-1 and continue through while loop
+                                    # As though the list was a commutable gate
+                                    x+=(len(l))
+                                    commutable_lists=[]
+                                    i_x_com=True
+                                    break
+                                if (l[y].__class__==self._l[idx][i+x+1+y].gate.__class__):
+                                    y+=1
+                                    continue
+                                else:
+                                    commutable_lists.pop(l)
+                                    break
+                    # At this point, if the commands following i+x are the same as a
+                    # list l which is commutable with i, then we have added len(l) to 
+                    # x and set i_x_com to True. If the commands do not make up a list
+                    # l then i_x_com = False and we should move on to the next i.          
+                        continue
+                    break
                 else:
                     break
-                
+  
             i += 1  # next iteration: look at next gate
         return limit
 

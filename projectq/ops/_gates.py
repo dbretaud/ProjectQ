@@ -219,6 +219,11 @@ class Ph(BasicPhaseGate):
 
 class Rx(BasicRotationGate):
     """ RotationX gate class """
+
+    def __init__(self, angle):
+        BasicRotationGate.__init__(self, angle)
+        self._commutable_gates = [Rxx,]
+
     @property
     def matrix(self):
         return np.matrix([[math.cos(0.5 * self.angle),
@@ -226,15 +231,13 @@ class Rx(BasicRotationGate):
                           [-1j * math.sin(0.5 * self.angle),
                            math.cos(0.5 * self.angle)]])
 
-    def is_commutable(self, other):
-        if (other.__class__ == Rxx):
-            return True
-        else:
-            return super().is_commutable(other)
-
-
 class Ry(BasicRotationGate):
     """ RotationY gate class """
+
+    def __init__(self, angle):
+        BasicRotationGate.__init__(self, angle)
+        self._commutable_gates = [Ryy,]
+
     @property
     def matrix(self):
         return np.matrix([[math.cos(0.5 * self.angle),
@@ -242,25 +245,19 @@ class Ry(BasicRotationGate):
                           [math.sin(0.5 * self.angle),
                            math.cos(0.5 * self.angle)]])
 
-    def is_commutable(self, other):
-        if (other.__class__ == Ryy):
-            return True
-        else:
-            return super().is_commutable(other)
-
 
 class Rz(BasicRotationGate):
     """ RotationZ gate class """
+
+    def __init__(self, angle):
+        BasicRotationGate.__init__(self, angle)
+        self._commutable_gates = [Rzz,]
+        self._commutable_gate_lists = [[H, X, H],]
+
     @property
     def matrix(self):
         return np.matrix([[cmath.exp(-.5 * 1j * self.angle), 0],
                           [0, cmath.exp(.5 * 1j * self.angle)]])
-
-    def is_commutable(self, other):
-        if (other.__class__ == Rzz):
-            return True
-        else:
-            return super().is_commutable(other)
 
 
 class Rxx(BasicRotationGate):
@@ -269,6 +266,7 @@ class Rxx(BasicRotationGate):
     def __init__(self, angle):
         BasicRotationGate.__init__(self, angle)
         self.interchangeable_qubit_indices = [[0, 1]]
+        self._commutable_gates = [Rx,]
 
     @property
     def matrix(self):
@@ -277,12 +275,6 @@ class Rxx(BasicRotationGate):
                           [0, -1j*cmath.sin(.5 * self.angle), cmath.cos( .5 * self.angle), 0],
                           [-1j*cmath.sin(.5 * self.angle), 0, 0, cmath.cos( .5 * self.angle)]])
 
-    def is_commutable(self, other):
-        if (other.__class__ == Rx):
-            return True
-        else:
-            return super().is_commutable(other)
-
 
 class Ryy(BasicRotationGate):
     """ RotationYY gate class """
@@ -290,6 +282,8 @@ class Ryy(BasicRotationGate):
     def __init__(self, angle):
         BasicRotationGate.__init__(self, angle)
         self.interchangeable_qubit_indices = [[0, 1]]
+        self._commutable_gates = [Ry,]
+
 
     @property
     def matrix(self):
@@ -298,12 +292,6 @@ class Ryy(BasicRotationGate):
                           [0, -1j*cmath.sin(.5 * self.angle), cmath.cos( .5 * self.angle), 0],
                           [1j*cmath.sin(.5 * self.angle), 0, 0, cmath.cos( .5 * self.angle)]])
 
-    def is_commutable(self, other):
-        if (other.__class__ == Ry):
-            return True
-        else:
-            return super().is_commutable(other)
-
 
 class Rzz(BasicRotationGate):
     """ RotationZZ gate class """
@@ -311,6 +299,7 @@ class Rzz(BasicRotationGate):
     def __init__(self, angle):
         BasicRotationGate.__init__(self, angle)
         self.interchangeable_qubit_indices = [[0, 1]]
+        self._commutable_gates = [Rz,]
         
     @property
     def matrix(self):
@@ -318,12 +307,6 @@ class Rzz(BasicRotationGate):
                           [0, cmath.exp( .5 * 1j * self.angle), 0, 0],
                           [0, 0, cmath.exp( .5 * 1j * self.angle), 0],
                           [0, 0, 0, cmath.exp(-.5 * 1j * self.angle)]])
-
-    def is_commutable(self, other):
-        if (other.__class__ == Rz):
-            return True
-        else:
-            return super().is_commutable(other)
 
 
 class R(BasicPhaseGate):

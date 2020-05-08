@@ -146,12 +146,14 @@ def test_command_is_identity(main_engine):
     assert not inverse_cmd2.gate.is_identity()
     assert not cmd2.gate.is_identity()
 
+
 def test_overlap():
     tuple1 = ([1,2],[3])
     tuple2 = ([2],[3,0])
     tuple3 = ([0,0,0],)
     assert _command.overlap(tuple1, tuple2) == 2
     assert _command.overlap(tuple1, tuple3) == 0
+
 
 def test_command_is_commutable(main_engine):
     qubit1 = Qureg([Qubit(main_engine, 0)])
@@ -167,6 +169,7 @@ def test_command_is_commutable(main_engine):
     assert not cmd1.is_commutable(cmd3) #Different qubits, same gate
     assert cmd3.is_commutable(cmd4)     #Qubits in common, different but commutable gates
     assert not cmd4.is_commutable(cmd5) #Qubits in common, different, non-commutable gates
+
 
 def test_command_order_qubits(main_engine):
     qubit0 = Qureg([Qubit(main_engine, 0)])

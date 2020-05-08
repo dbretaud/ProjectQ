@@ -165,12 +165,14 @@ def test_rz(angle1, angle2):
     gate1 = _gates.Rz(angle1)
     gate2 = _gates.Rzz(angle2)
     gate3 = _gates.Rx(angle1)
+    gate4 = _gates.H
     expected_matrix = np.matrix([[cmath.exp(-.5 * 1j * angle1), 0],
                                  [0, cmath.exp(.5 * 1j * angle1)]])
     assert gate1.matrix.shape == expected_matrix.shape
     assert np.allclose(gate1.matrix, expected_matrix)
     assert gate1.is_commutable(gate2)
     assert not gate1.is_commutable(gate3)
+    assert gate1.is_commutable(gate4) == 2
 
 
 @pytest.mark.parametrize("angle1", [0, 0.2, 2.1, 4.1, 2 * math.pi,
@@ -373,3 +375,4 @@ def test_flip_bits_can_be_applied_to_various_qubit_qureg_formats():
     eng.flush()
     assert pytest.approx(eng.backend.get_probability('0010', qubits)) == 1.
     All(Measure) | qubits
+
