@@ -135,7 +135,7 @@ def test_chooser_Ry_reducer():
     for engine_list, count in [(restrictedgateset.get_engine_list(
                                    one_qubit_gates=(Rx, Ry),
                                    two_qubit_gates=(Rxx, )), 13),
-                               (get_engine_list(), 11)]:
+                               (get_engine_list(), 10)]:
 
         backend = DummyEngine(save_commands=True)
         eng = projectq.MainEngine(backend, engine_list, verbose=True)
