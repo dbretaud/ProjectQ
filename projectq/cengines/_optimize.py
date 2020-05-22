@@ -32,7 +32,7 @@ class LocalOptimizer(BasicEngine):
     available). For examples, see BasicRotationGate. Once a list corresponding
     to a qubit contains >=m gates, the pipeline is sent on to the next engine.
     """
-    def __init__(self, m=5):
+    def __init__(self, m=5, apply_commutation=True):
         """
         Initialize a LocalOptimizer object.
         Args:
@@ -42,6 +42,7 @@ class LocalOptimizer(BasicEngine):
         BasicEngine.__init__(self)
         self._l = dict()  # dict of lists containing operations for each qubit
         self._m = m  # wait for m gates before sending on
+        self._apply_commutation = apply_commutation
 
     def _send_qubit_pipeline(self, idx, n):
         """
@@ -292,7 +293,12 @@ class LocalOptimizer(BasicEngine):
                             break
                     except NotMergeable:
                         # Unsuccessful in merging, see if gates are commutable
-                        pass  
+                        pass
+
+                    # If apply_commutation=False, then we want the optimizer to 
+                    # ignore commutation when optimizing
+                    if not self._apply_commutation:
+                        break
 
                     if(self._l[idx][i].is_commutable(self._l[idx][i+x+1]) == 1):
                         x=x+1

@@ -293,4 +293,33 @@ def test_local_optimizer_commutable_gate_list():
     for cmd in received_commands:
         print(cmd)
 
-test_local_optimizer_commutable_gate_list()
+def test_local_optimizer_apply_commutation_false():
+    # Test that the local_optimizer behaves as if commutation isn't an option
+    # if you set apply_commutation = False
+    local_optimizer = _optimize.LocalOptimizer(m=10, apply_commutation=False)
+    backend = DummyEngine(save_commands=True)
+    eng = MainEngine(backend=backend, engine_list=[local_optimizer])
+    qb0 = eng.allocate_qubit()
+    qb1 = eng.allocate_qubit()
+    Rz(0.1) | qb0 # Rzs next to eachother should merge
+    Rz(0.4) | qb0
+    Rzz(0.3) | (qb0, qb1) # Rzs either side of Rzz should not merge
+    Rz(0.2) | qb0
+    H | qb0 # Hs next to eachother should cancel
+    H | qb0
+    Rz(0.1) | qb0 # Rz should not merge with the Rz on the other side of
+    H | qb0       # a commutable list
+    CNOT | (qb0, qb1)
+    H | qb0
+    Rz(0.2) | qb0
+    eng.flush()
+    received_commands = []
+    # Remove Allocate and Deallocate gates
+    for cmd in backend.received_commands:
+        if not (isinstance(cmd.gate, FastForwardingGate) or
+                isinstance(cmd.gate, ClassicalInstructionGate)):
+            received_commands.append(cmd)
+    assert len(received_commands) == 7
+    assert received_commands[0].gate == Rz(0.5)
+    assert received_commands[6].gate == Rz(0.2)
+    

@@ -62,14 +62,6 @@ class NotInvertible(Exception):
     pass
 
 
-class IsCommutableFoundIdenticalGate(Exception):
-    """
-    Exception thrown when attempting to perform is_commutable on an identical
-    gate.
-    """
-    pass
-
-
 class BasicGate(object):
     """
     Base class of all gates. (Don't use it directly but derive from it)
@@ -254,15 +246,18 @@ class BasicGate(object):
         return False
 
     def is_commutable(self, other):
-        if (self == other):
-            raise IsCommutableFoundIdenticalGate
+        # If gate is commutable with other gate, return 1
         for gate in self._commutable_gates:
             if (other.__class__ == gate):
                 return 1
+        # If other gate may be part of a list which is 
+        # commutable with gate, return 0
         for gate_list in self._commutable_gate_lists:
             if (other.__class__ == gate_list[0].__class__):
                 return 2
         else:
+            # Default is to return False, including if 
+            # other gate and gate are identical
             return 0
 
 class MatrixGate(BasicGate):

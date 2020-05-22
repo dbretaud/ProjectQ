@@ -163,8 +163,7 @@ def test_command_is_commutable(main_engine):
     cmd3 = _command.Command(main_engine, Rx(0.5), (qubit2,))
     cmd4 = _command.Command(main_engine, Rxx(0.5), (qubit1, qubit2))
     cmd5 = _command.Command(main_engine, Ry(0.2), (qubit1,))
-    with pytest.raises(_basics.IsCommutableFoundIdenticalGate):
-        cmd1.is_commutable(cmd2) #Identical qubits, identical gate
+    assert not cmd1.is_commutable(cmd2) #Identical qubits, identical gate
     assert _command.overlap(cmd1.all_qubits, cmd3.all_qubits) == 0
     assert not cmd1.is_commutable(cmd3) #Different qubits, same gate
     assert cmd3.is_commutable(cmd4)     #Qubits in common, different but commutable gates

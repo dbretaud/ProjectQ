@@ -341,6 +341,5 @@ def test_is_commutable():
     gate1 = _basics.BasicRotationGate(math.pi)
     gate2 = _basics.MatrixGate()
     gate3 = _basics.BasicRotationGate(math.pi)
-    assert gate1.is_commutable(gate2) == False 
-    with pytest.raises(_basics.IsCommutableFoundIdenticalGate):
-        gate1.is_commutable(gate3)
+    assert gate1.is_commutable(gate2) == False
+    assert gate1.is_commutable(gate3) == False
