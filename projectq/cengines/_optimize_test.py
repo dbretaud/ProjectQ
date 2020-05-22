@@ -182,6 +182,7 @@ def test_local_optimizer_separated_mergeable_gates():
     qb0 = eng.allocate_qubit()
     qb1 = eng.allocate_qubit()
     #assert len(backend.received_commands) == 0
+    #Reminder: Rxx and Rx commute
     Rxx(0.3) | (qb0, qb1)
     Rx(math.pi) | qb1
     Rxx(0.8) | (qb0, qb1)
@@ -280,6 +281,28 @@ def test_local_optimizer_commutable_gate_list():
     qb1 = eng.allocate_qubit()
     Rz(0.1) | qb0
     H | qb0
+    CNOT | (qb1, qb0)
+    H | qb0
+    Rz(0.2) | qb0
+    eng.flush()
+    received_commands = []
+    # Remove Allocate and Deallocate gates
+    for cmd in backend.received_commands:
+        if not (isinstance(cmd.gate, FastForwardingGate) or
+                isinstance(cmd.gate, ClassicalInstructionGate)):
+            received_commands.append(cmd)
+    assert received_commands[0].gate == Rz(0.3)
+    assert len(received_commands) == 4
+
+def test_local_optimizer_non_commutable_gate_list():
+    #check asymetry features of control gate when applying commutation rules
+    local_optimizer = _optimize.LocalOptimizer(m=10)
+    backend = DummyEngine(save_commands=True)
+    eng = MainEngine(backend=backend, engine_list=[local_optimizer])
+    qb0 = eng.allocate_qubit()
+    qb1 = eng.allocate_qubit()
+    Rz(0.1) | qb0
+    H | qb0
     CNOT | (qb0, qb1)
     H | qb0
     Rz(0.2) | qb0
@@ -290,8 +313,8 @@ def test_local_optimizer_commutable_gate_list():
         if not (isinstance(cmd.gate, FastForwardingGate) or
                 isinstance(cmd.gate, ClassicalInstructionGate)):
             received_commands.append(cmd)
-    for cmd in received_commands:
-        print(cmd)
+    assert received_commands[0].gate == Rz(0.1)
+    assert len(received_commands) == 5
 
 def test_local_optimizer_apply_commutation_false():
     # Test that the local_optimizer behaves as if commutation isn't an option

@@ -322,7 +322,7 @@ class LocalOptimizer(BasicEngine):
                         i_x_com=False
                         while(len(commutable_lists)>0):
                             # If no commutable lists, move on to next i
-                            for l in commutable_lists:
+                            for idl,l in enumerate(commutable_lists):
                                 if (y>(len(l)-1)):
                                 # Up to the yth term in l, we have checked
                                 # that self._l[idx][i+x+y] == l[y]
@@ -334,11 +334,15 @@ class LocalOptimizer(BasicEngine):
                                     commutable_lists=[]
                                     i_x_com=True
                                     break
-                                if (l[y].__class__==self._l[idx][i+x+1+y].gate.__class__):
-                                    y+=1
-                                    continue
+                                if (i+x+1+y<limit):
+                                    if (l[y].__class__==self._l[idx][i+x+1+y].gate.__class__):
+                                        y+=1
+                                        continue
+                                    else:
+                                        commutable_lists.pop(idl)
+                                        break
                                 else:
-                                    commutable_lists.pop(l)
+                                    commutable_lists.pop(idl)
                                     break
                     # At this point, if the commands following i+x are the same as a
                     # list l which is commutable with i, then we have added len(l) to 
