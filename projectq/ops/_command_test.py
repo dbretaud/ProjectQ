@@ -23,7 +23,7 @@ import pytest
 from projectq import MainEngine
 from projectq.cengines import DummyEngine
 from projectq.meta import ComputeTag
-from projectq.ops import BasicGate, Rx, NotMergeable, Rxx, Ry
+from projectq.ops import BasicGate, Rx, NotMergeable, Rxx, Ry, H
 from projectq.types import Qubit, Qureg, WeakQubitRef
 from projectq.ops import _command, _basics
 
@@ -264,6 +264,12 @@ def test_command_comparison(main_engine):
     cmd6.tags = ["TestTag"]
     cmd6.add_control_qubits(ctrl_qubit)
     assert cmd6 != cmd1
+    # Test not equal because of location of ctrl qubits
+    ctrl_qubit2 = ctrl_qubit = Qureg([Qubit(main_engine, 2)])
+    cmd7 = _command.Command(main_engine, Rx(0.5), (qubit,))
+    cmd7.tags = ["TestTag"]
+    cmd7.add_control_qubits(ctrl_qubit2)
+    assert not cmd7 == cmd1
 
 
 def test_command_str():

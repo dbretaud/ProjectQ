@@ -25,6 +25,7 @@ from projectq.ops import (All, FlipBits, get_inverse, SelfInverseGate,
                           FastForwardingGate, BasicGate, Measure)
 
 from projectq.ops import _gates
+from projectq.ops import CNOT
 
 
 def test_h_gate():
@@ -37,12 +38,16 @@ def test_h_gate():
 
 
 def test_x_gate():
-    gate = _gates.XGate()
-    assert gate == gate.get_inverse()
-    assert str(gate) == "X"
-    assert np.array_equal(gate.matrix, np.matrix([[0, 1], [1, 0]]))
+    gate1 = _gates.XGate()
+    gate2 = CNOT
+    assert gate1 == gate1.get_inverse()
+    assert str(gate1) == "X"
+    assert np.array_equal(gate1.matrix, np.matrix([[0, 1], [1, 0]]))
     assert isinstance(_gates.X, _gates.XGate)
     assert isinstance(_gates.NOT, _gates.XGate)
+    assert gate1._commutable_circuit_list == []
+    assert gate2._commutable_circuit_list == [1,2]
+
 
 def test_y_gate():
     gate = _gates.YGate()
@@ -375,4 +380,3 @@ def test_flip_bits_can_be_applied_to_various_qubit_qureg_formats():
     eng.flush()
     assert pytest.approx(eng.backend.get_probability('0010', qubits)) == 1.
     All(Measure) | qubits
-

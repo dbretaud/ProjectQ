@@ -57,7 +57,8 @@ from ._basics import (BasicGate,
                       FastForwardingGate,
                       BasicMathGate)
 from ._command import apply_command
-
+from ._command import Command
+from projectq.types import BasicQubit
 
 class HGate(SelfInverseGate):
     """ Hadamard gate class """
@@ -74,6 +75,7 @@ H = HGate()
 
 class XGate(SelfInverseGate):
     """ Pauli-X gate class """
+
     def __str__(self):
         return "X"
 
@@ -81,9 +83,18 @@ class XGate(SelfInverseGate):
     def matrix(self):
         return np.matrix([[0, 1], [1, 0]])
 
+    def get_commutable_circuit_list(self, n=0):
+        """ Sets _commutable_circuit_list for C(NOT, n) where
+        n is the number of controls """
+        if (n == 1):
+            # i.e. this is a CNOT gate (one control)
+            commutable_circuit_list = [1,2]
+            return commutable_circuit_list
+        else:
+            return [] # don't change _commutable_circuit_list
+
 #: Shortcut (instance of) :class:`projectq.ops.XGate`
 X = NOT = XGate()
-
 
 class YGate(SelfInverseGate):
     """ Pauli-Y gate class """
@@ -231,6 +242,7 @@ class Rx(BasicRotationGate):
                           [-1j * math.sin(0.5 * self.angle),
                            math.cos(0.5 * self.angle)]])
 
+
 class Ry(BasicRotationGate):
     """ RotationY gate class """
 
@@ -252,8 +264,8 @@ class Rz(BasicRotationGate):
     def __init__(self, angle):
         BasicRotationGate.__init__(self, angle)
         self._commutable_gates = [Rzz,]
-        self._commutable_gate_lists = [[H, X, H],]
-
+        self._commutable_circuit_lists = [[H, X, H],]
+        
     @property
     def matrix(self):
         return np.matrix([[cmath.exp(-.5 * 1j * self.angle), 0],

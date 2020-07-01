@@ -102,7 +102,7 @@ class BasicGate(object):
         """
         self.interchangeable_qubit_indices = []
         self._commutable_gates = []
-        self._commutable_gate_lists = []
+        self._commutable_circuit_list = []
 
     def get_inverse(self):
         """
@@ -126,8 +126,8 @@ class BasicGate(object):
         """
         raise NotMergeable("BasicGate: No get_merged() implemented.")
 
-    def get_commutable_gate_lists(self):
-        return self._commutable_gate_lists
+    def get_commutable_circuit_list(self, n=0):
+        return self._commutable_circuit_list
 
     @staticmethod
     def make_tuple_of_qureg(qubits):
@@ -252,7 +252,7 @@ class BasicGate(object):
                 return 1
         # If other gate may be part of a list which is 
         # commutable with gate, return 0
-        for gate_list in self._commutable_gate_lists:
+        for gate_list in self._commutable_circuit_list:
             if (other.__class__ == gate_list[0].__class__):
                 return 2
         else:
