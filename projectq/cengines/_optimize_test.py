@@ -182,6 +182,7 @@ def test_local_optimizer_separated_mergeable_gates():
     qb0 = eng.allocate_qubit()
     qb1 = eng.allocate_qubit()
     #assert len(backend.received_commands) == 0
+    #Reminder: Rxx and Rx commute
     Rxx(0.3) | (qb0, qb1)
     Rx(math.pi) | qb1
     Rxx(0.8) | (qb0, qb1)
@@ -297,8 +298,8 @@ def test_local_optimizer_commutable_circuit():
         if not (isinstance(cmd.gate, FastForwardingGate) or
                 isinstance(cmd.gate, ClassicalInstructionGate)):
             received_commands.append(cmd)
-    for cmd in received_commands:
-        print(cmd)
+    assert received_commands[0].gate == Rz(0.1)
+    assert len(received_commands) == 5
 
 def test_local_optimizer_apply_commutation_false():
     # Test that the local_optimizer behaves as if commutation isn't an option
