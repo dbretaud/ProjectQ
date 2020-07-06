@@ -299,56 +299,118 @@ class LocalOptimizer(BasicEngine):
                     # ignore commutation when optimizing
                     if not self._apply_commutation:
                         break
-
-                    if(self._l[idx][i].is_commutable(self._l[idx][i+x+1]) == 1):
+                    command_i = self._l[idx][i]
+                    next_command = self._l[idx][i+x+1]
+                    if(command_i.is_commutable(next_command) == 1):
                         x=x+1
                         continue
 
-                    if(self._l[idx][i].is_commutable(self._l[idx][i+x+1]) == 2):
-                        # See if self._l[idx][i+x] is part of a gate list which 
-                        # is commutable with self._l[idx][i]
-                        # commutable_gate_list = a property of self._l[idx][i].gate
-                        commutable_gate_lists = self._l[idx][i].gate.get_commutable_gate_lists()
-                        # Keep a list of commutable_lists that start with 
-                        # self._l[idx][i+x]
-                        commutable_lists = []
-                        for gate_list in commutable_gate_lists:
-                            if (gate_list[0].__class__ == self._l[idx][i+x+1].gate.__class__):
-                                commutable_lists.append(gate_list)
-                        # Iterate through the next gates after i+x and delete 
-                        # any list in commutable_lists which doesn't contain
-                        # the same gates as self._l[idx][i+x] onwards
-                        y=0
-                        i_x_com=False
-                        while(len(commutable_lists)>0):
-                            # If no commutable lists, move on to next i
-                            for l in commutable_lists:
-                                if (y>(len(l)-1)):
-                                # Up to the yth term in l, we have checked
-                                # that self._l[idx][i+x+y] == l[y]
-                                # This means the list l is commutable 
-                                # with self._l[idx][i]
-                                    # Set x = x+len(l)-1 and continue through while loop
-                                    # As though the list was a commutable gate
-                                    x+=(len(l))
-                                    commutable_lists=[]
+                    #----------------------------------------------------------#
+                    # See if next_command is part of a circuit which is        #
+                    # commutable with this_command.                            #
+                    #----------------------------------------------------------#
+
+                    # Notes:
+                    # 1. circuit = a list of command objects
+                    # 2. relative_circuit = a property of command_i.gate, 
+                    #    defined as a list of RelativeCommands
+                    # 3. absolute refers to the commands being examined in the optimizer
+                    #    relative refers to the commutable_circuits defined in the gate classes
+                    # 4. y is used to iterate through the next gates in the buffer after 
+                    #    next_command and delete any circuit in relative_commutable_circuits 
+                    #    which doesn't contain the same gates as those coming next in the buffer.
+                    if(command_i.is_commutable(next_command) == 2):
+                        commutable_circuit_list = command_i.gate.get_commutable_circuit_list()
+                        relative_commutable_circuits = []
+                        # Keep a list of circuits that start with 
+                        # next_command.
+                        for relative_circuit in commutable_circuit_list:
+                            if (relative_circuit[0].gate.__class__ == next_command.gate.__class__):
+                                relative_commutable_circuits.append(relative_circuit)
+                        # Create dictionaries { absolute_qubit_idx : relative_qubit_idx }
+                        # For the purposes of fast lookup, also { relative_qubit_idx : absolute_qubit_idx }
+                        abs_to_rel = { idx : 0 }
+                        rel_to_abs = { 0 : idx}
+                        y=0 
+                        absolute_circuit = self._l[idx][i+x+1:]
+                        while(len(relative_commutable_circuits)>0):
+                            # If no (more) relative commutable circuits to check against, 
+                            # break out of this while loop and move on to next command_i.
+                            for c in range(len(relative_commutable_circuits)):
+                                # Check each circuit in relative_commutable_circuits
+                                relative_circuit = relative_commutable_circuits[c]
+                                if (y>(len(relative_circuit)-1)):
+                                # Up to the yth term in relative_circuit, we have checked
+                                # that absolute_circuit[y] == relative_circuit[y]
+                                # This means absolute_circuit is commutable 
+                                # with command_i
+                                    # Set x = x+len(relative_circuit)-1 and continue through 
+                                    # while loop as though the list was a commutable gate
+                                    x+=(len(relative_circuit))
+                                    relative_commutable_circuits=[]
                                     i_x_com=True
                                     break
-                                if (l[y].__class__==self._l[idx][i+x+1+y].gate.__class__):
-                                    y+=1
-                                    continue
-                                else:
-                                    commutable_lists.pop(l)
+                                # Check if relative_circuit qubit idcs
+                                # match the absolute_circuit qubit idcs
+                                next_command = absolute_circuit[y]
+                                if not (relative_circuit[y]._gate.__class__==next_command.gate.__class__):
+                                    i_x_com = False
+                                    relative_commutable_circuits.pop(c)
                                     break
-                    # At this point, if the commands following i+x are the same as a
-                    # list l which is commutable with i, then we have added len(l) to 
-                    # x and set i_x_com to True. If the commands do not make up a list
-                    # l then i_x_com = False and we should move on to the next i.          
+                                # Now we know the gates are equal.
+                                # We check the idcs don't contradict our dictionaries.
+                                for qubit in next_command.qubits:
+                                    # We know a and r should correspond in both dictionaries.
+                                    a=qubit[0].id
+                                    r=relative_circuit[y].relative_qubit_idcs[0]
+                                    if a in abs_to_rel.keys():
+                                        # If a in abs_to_rel, r will be in rel_to_abs
+                                        if (abs_to_rel[a] != r):
+                                            i_x_com = False
+                                            relative_commutable_circuits.pop(c)
+                                            break
+                                    if r in rel_to_abs.keys():
+                                        if (rel_to_abs[r] != a):
+                                            i_x_com = False
+                                            relative_commutable_circuits.pop(c)
+                                            break
+                                    abs_to_rel[a] = r
+                                    rel_to_abs[r] = a
+                                if len(relative_commutable_circuits)==0:
+                                    break
+                                # HERE: we know the qubit idcs don't contradict our dictionaries.
+                                for ctrl_qubit in next_command.control_qubits:
+                                    # We know a and r should correspond in both dictionaries.
+                                    a=ctrl_qubit.id
+                                    r=relative_circuit[y].relative_ctrl_idcs[0]
+                                    if a in abs_to_rel.keys():
+                                        # If a in abs_to_rel, r will be in rel_to_abs
+                                        if (abs_to_rel[a] != r):
+                                            i_x_com = False
+                                            relative_commutable_circuits.pop(c)
+                                            break
+                                    if r in rel_to_abs.keys():
+                                        if (rel_to_abs[r] != a):
+                                            i_x_com = False
+                                            relative_commutable_circuits.pop(c)
+                                            break
+                                    abs_to_rel[a] = r
+                                    rel_to_abs[r] = a
+                                # HERE: we know all relative/absolute qubits/ctrl qubits do not 
+                                # contradict dictionaries and are assigned.
+                                i_x_com = True
+                                y+=1
+                                break
+                    # At this point, if the commands following i+x are the same as
+                    # relative_circuit which is commutable with command_i, 
+                    # then we have added len(relative_circuit) to x and set 
+                    # i_x_com to True. 
+                    # If the commands do not make up a commutable circuit then 
+                    # i_x_com = False and we should move on to the next i.          
                         continue
                     break
                 else:
                     break
-  
             i += 1  # next iteration: look at next gate
         return limit
 

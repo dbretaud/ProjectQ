@@ -20,11 +20,13 @@ import numpy as np
 import pytest
 
 from projectq.types import Qubit, Qureg
-from projectq.ops import Command, X
+from projectq.ops import Command, X, NOT
 from projectq import MainEngine
 from projectq.cengines import DummyEngine
 
 from projectq.ops import _basics
+from projectq.ops import _gates
+from projectq.ops import _metagates
 
 
 @pytest.fixture
@@ -337,9 +339,19 @@ def test_matrix_gate():
     assert str(gate3) == "MatrixGate([[0, 1], [1, 0]])"
     assert hash(gate3) == hash("MatrixGate([[0, 1], [1, 0]])")
 
+
 def test_is_commutable():
+    # Check is_commutable function returns 0, 1, 2 
+    # For False, True and Maybe
+    # 'Maybe' refers to the situation where you
+    # might have a commutable circuit
     gate1 = _basics.BasicRotationGate(math.pi)
     gate2 = _basics.MatrixGate()
     gate3 = _basics.BasicRotationGate(math.pi)
     assert gate1.is_commutable(gate2) == False
     assert gate1.is_commutable(gate3) == False
+    gate4 = _gates.Rz(math.pi)
+    gate5 = _gates.H
+    gate6 = _metagates.C(NOT)
+    assert gate4.is_commutable(gate5) == 2
+    assert gate4.is_commutable(gate6) == 0

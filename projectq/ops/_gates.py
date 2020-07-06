@@ -56,8 +56,10 @@ from ._basics import (BasicGate,
                       ClassicalInstructionGate,
                       FastForwardingGate,
                       BasicMathGate)
+from ._metagates import C
 from ._command import apply_command
 from ._command import Command
+from ._command import RelativeCommand
 from projectq.types import BasicQubit
 
 class HGate(SelfInverseGate):
@@ -264,7 +266,7 @@ class Rz(BasicRotationGate):
     def __init__(self, angle):
         BasicRotationGate.__init__(self, angle)
         self._commutable_gates = [Rzz,]
-        self._commutable_circuit_lists = [[H, X, H],]
+        self._commutable_circuit_list = [[RelativeCommand(H,(0,)), RelativeCommand(C(NOT),(0,), relative_ctrl_idcs=(1,)), RelativeCommand(H,(0,))],]
         
     @property
     def matrix(self):

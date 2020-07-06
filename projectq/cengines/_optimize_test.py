@@ -272,17 +272,24 @@ def test_local_optimizer_commutable_gates():
     assert received_commands[3].qubits[0][0].id == qb2[0].id
     assert received_commands[4].qubits[0][0].id == qb3[0].id
 
-def test_local_optimizer_commutable_gate_list():
+def test_local_optimizer_commutable_circuit():
     local_optimizer = _optimize.LocalOptimizer(m=10)
     backend = DummyEngine(save_commands=True)
     eng = MainEngine(backend=backend, engine_list=[local_optimizer])
     qb0 = eng.allocate_qubit()
     qb1 = eng.allocate_qubit()
-    Rz(0.1) | qb0
-    H | qb0
-    CNOT | (qb0, qb1)
-    H | qb0
-    Rz(0.2) | qb0
+    qb2 = eng.allocate_qubit()
+    qb3 = eng.allocate_qubit()
+    Rz(0.1) | qb3
+    H | qb3
+    CNOT | (qb2, qb3)
+    H | qb3
+    Rz(0.2) | qb3
+    Rzz(0.3) | (qb2, qb3)
+    Rz(0.5) | qb3
+    H | qb3
+    Rx(0.1) | qb3
+    CNOT | (qb3, qb2)
     eng.flush()
     received_commands = []
     # Remove Allocate and Deallocate gates
@@ -323,3 +330,4 @@ def test_local_optimizer_apply_commutation_false():
     assert received_commands[0].gate == Rz(0.5)
     assert received_commands[6].gate == Rz(0.2)
     
+test_local_optimizer_commutable_circuit()

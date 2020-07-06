@@ -38,10 +38,8 @@ apply wrapper (apply_command).
 """
 
 from copy import deepcopy
-
 import projectq
 from projectq.types import WeakQubitRef, Qureg
-
 
 def apply_command(cmd):
     """
@@ -352,3 +350,32 @@ def overlap(tuple1, tuple2):
         if element in flat_tuple2:
             n+=1
     return n
+
+class RelativeCommand(object):
+    """ 
+    Class:
+        Used to represent commands when there is no engine.
+        i.e. in the definition of a relative commutable_circuit 
+        within a gate class. 
+
+    Attributes:
+        gate: The gate class.
+        _gate: If RelativeCommand.gate = ControlledGate, _gate will
+        return the gate class on the target qubit. 
+        e.g. if relative_command.gate = CNOT 
+        (class = projectq.ops._metagates.ControlledGate)
+        relative_command._gate = NOT
+        (class = projectq.ops._gates.XGate)
+        relative_qubit_idcs: Tuple of integers, representing the
+        relative qubit idcs in a commutable_circuit.
+        relative_ctrl_idcs: Tuple of integers, representing the 
+        relative control qubit idcs in a commutable_circuit.
+    """
+    def __init__(self, gate, relative_qubit_idcs, relative_ctrl_idcs=()):
+        from projectq.ops._metagates import ControlledGate
+        self.gate = gate
+        self.relative_qubit_idcs = relative_qubit_idcs
+        self.relative_ctrl_idcs = relative_ctrl_idcs
+        self._gate = gate
+        if (self.gate.__class__ == ControlledGate):
+            self._gate = self.gate._gate
