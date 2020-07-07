@@ -298,8 +298,10 @@ def test_local_optimizer_commutable_circuit():
         if not (isinstance(cmd.gate, FastForwardingGate) or
                 isinstance(cmd.gate, ClassicalInstructionGate)):
             received_commands.append(cmd)
-    assert received_commands[0].gate == Rz(0.1)
-    assert len(received_commands) == 5
+    for cmd in backend.received_commands:
+        print(cmd)
+    assert received_commands[0].gate == Rz(0.8)
+    assert len(received_commands) == 8
 
 def test_local_optimizer_apply_commutation_false():
     # Test that the local_optimizer behaves as if commutation isn't an option

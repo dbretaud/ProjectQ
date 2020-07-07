@@ -350,6 +350,12 @@ class LocalOptimizer(BasicEngine):
                                     relative_commutable_circuits=[]
                                     i_x_com=True
                                     break
+                                #Check that there is still gates in the
+                                #enginge buffer
+                                if (y>(len(absolute_circuit)-1)):
+                                    i_x_com = False
+                                    relative_commutable_circuits.pop(c)
+                                    break
                                 # Check if relative_circuit qubit idcs
                                 # match the absolute_circuit qubit idcs
                                 next_command = absolute_circuit[y]
