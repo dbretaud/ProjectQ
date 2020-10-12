@@ -112,6 +112,7 @@ class Command(object):
         self.qubits = qubits  # property
         self.control_qubits = controls  # property
         self.engine = engine  # property
+        self._commutable_circuit_list = self.gate.get_commutable_circuit_list(n=len(self.control_qubits))
 
     @property
     def qubits(self):
@@ -159,6 +160,12 @@ class Command(object):
         """
         if (overlap(self.all_qubits, other.all_qubits)==0):
             return 0
+        self._commutable_circuit_list = self.gate.get_commutable_circuit_list(len(self.control_qubits))
+        # If other gate may be part of a list which is 
+        # commutable with gate, return 2
+        for circuit in self._commutable_circuit_list:
+            if (other.gate.__class__ == circuit[0]._gate.__class__):
+                return 2
         else:
             return self.gate.is_commutable(other.gate)
 
@@ -379,3 +386,25 @@ class RelativeCommand(object):
         self._gate = gate
         if (self.gate.__class__ == ControlledGate):
             self._gate = self.gate._gate
+    
+    def __str__(self):
+        return self.to_string()
+
+    def to_string(self, symbols=False):
+        """
+        Get string representation of this Command object.
+        """
+        qubits = self.relative_qubit_idcs
+        ctrlqubits = self.relative_ctrl_idcs
+        if len(ctrlqubits) > 0:
+            qubits = (self.relative_ctrl_idcs, ) + qubits
+        qstring = ""
+        if len(qubits) == 1:
+            qstring = str(qubits)
+        else:
+            qstring = "( "
+            for qreg in range(len(qubits)):
+                qstring += str(qubits[qreg])
+                qstring += ", "
+            qstring = qstring[:-2] + " )"
+        return self.gate.to_string(symbols) + " | " + qstring

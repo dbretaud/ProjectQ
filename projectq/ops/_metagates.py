@@ -191,10 +191,7 @@ class ControlledGate(BasicGate):
         else:
             self._gate = gate
             self._n = n
-            # This step allows us to define different commutable_circuits depending on the 
-            # number of control qubits. 
-            self._commutable_circuit_list = self._gate.get_commutable_circuit_list(self._n)
-
+            
     def __str__(self):
         """ Return string representation, i.e., CC...C(gate). """
         return "C" * self._n + str(self._gate)
@@ -249,6 +246,9 @@ class ControlledGate(BasicGate):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    @property
+    def commutable_circuit_list(self):
+        return self._gate.commutable_circuit_list(self._n)
 
 def C(gate, n=1):
     """

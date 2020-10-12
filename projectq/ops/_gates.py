@@ -90,7 +90,9 @@ class XGate(SelfInverseGate):
         n is the number of controls """
         if (n == 1):
             # i.e. this is a CNOT gate (one control)
-            commutable_circuit_list = [1,2]
+            # We define the qubit with the NOT as qb0, the qubit with 
+            # the control as qb1, then all next qbs are labelled 2,3 etc.
+            commutable_circuit_list = [[RelativeCommand(H,(0,)), RelativeCommand(C(NOT),(2,), relative_ctrl_idcs=(0,)), RelativeCommand(H,(0,))]]
             return commutable_circuit_list
         else:
             return [] # don't change _commutable_circuit_list

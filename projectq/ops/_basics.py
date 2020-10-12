@@ -250,15 +250,11 @@ class BasicGate(object):
         for gate in self._commutable_gates:
             if (other.__class__ == gate):
                 return 1
-        # If other gate may be part of a list which is 
-        # commutable with gate, return 0
-        for circuit in self._commutable_circuit_list:
-            if (other.__class__ == circuit[0].gate.__class__):
-                return 2
         else:
             # Default is to return False, including if 
             # other gate and gate are identical
             return 0
+
 
 class MatrixGate(BasicGate):
     """

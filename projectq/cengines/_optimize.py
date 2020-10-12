@@ -153,7 +153,7 @@ class LocalOptimizer(BasicEngine):
                 new_list = (self._l[qubitids[j]][0:commandidcs[j]] + [new_command])
             self._l[qubitids[j]] = new_list
 
-    def _get_erase(self, idx, qubitids, commandidcs, inverse_command):
+    def _get_erase_boolean(self, idx, qubitids, commandidcs, inverse_command, apply_commutation):
         """
         Determines whether inverse commands should be cancelled
         with one another. i.e. the commands between the pair are all
@@ -172,7 +172,16 @@ class LocalOptimizer(BasicEngine):
             this_command = self._l[qubitids[j]][commandidcs[j]]
             future_command = self._l[qubitids[j]][commandidcs[j]+x]
             while (future_command!=inverse_command):
-                if (this_command.is_commutable(future_command)):
+                if apply_commutation==False:
+                    # If apply_commutation turned off, you should 
+                    # only get erase=True if commands are next to
+                    # eachother on all qubits. i.e. if future_command
+                    # and inverse_command are not equal (i.e. there
+                    # are gates separating them), you don't want 
+                    # optimizer to look at whether the separating gates 
+                    # are commutable.
+                    return False
+                if (this_command.is_commutable(future_command)==1):
                     x+=1
                     future_command = self._l[qubitids[j]][commandidcs[j]+x]
                     erase = True
@@ -181,7 +190,7 @@ class LocalOptimizer(BasicEngine):
                     break
         return erase
 
-    def _get_merge_boolean(self, idx, qubitids, commandidcs, merged_command):
+    def _get_merge_boolean(self, idx, qubitids, commandidcs, merged_command, apply_commutation):
         """
         To determine whether mergeable commands should be merged
         with one another. i.e. the commands between them are all
@@ -204,6 +213,11 @@ class LocalOptimizer(BasicEngine):
             merge = True
             x=1
             while (possible_command!=merged_command):
+                if not apply_commutation:
+                    # If apply_commutation turned off, you should 
+                    # only get erase=True if commands are next to
+                    # eachother on all qubits.
+                    return False
                 future_command = self._l[qubitids[j]][commandidcs[j]+x]
                 try:
                     possible_command = this_command.get_merged(future_command)
@@ -262,7 +276,7 @@ class LocalOptimizer(BasicEngine):
                         # of this command on each qubit id 
                         commandidcs = self._get_gate_indices(idx, i, qubitids)
                         erase = True
-                        erase = self._get_erase(idx, qubitids, commandidcs, inv)
+                        erase = self._get_erase_boolean(idx, qubitids, commandidcs, inv, self._apply_commutation)
                         if erase:
                         # Delete the inverse commands. Delete the later
                         # one first so the first index doesn't 
@@ -282,7 +296,7 @@ class LocalOptimizer(BasicEngine):
                         commandidcs = self._get_gate_indices(idx, i, qubitids)
                         merge = True
                         merge = self._get_merge_boolean(idx, qubitids, commandidcs, 
-                                                                merged_command)
+                                                                merged_command, self._apply_commutation)
                         if merge:
                             # Delete command i+x+1 first because i+x+1
                             # will not affect index of i
@@ -320,7 +334,7 @@ class LocalOptimizer(BasicEngine):
                     #    next_command and delete any circuit in relative_commutable_circuits 
                     #    which doesn't contain the same gates as those coming next in the buffer.
                     if(command_i.is_commutable(next_command) == 2):
-                        commutable_circuit_list = command_i.gate.get_commutable_circuit_list()
+                        commutable_circuit_list = command_i.gate.get_commutable_circuit_list(n=len(command_i._control_qubits), )
                         relative_commutable_circuits = []
                         # Keep a list of circuits that start with 
                         # next_command.
@@ -330,7 +344,7 @@ class LocalOptimizer(BasicEngine):
                         # Create dictionaries { absolute_qubit_idx : relative_qubit_idx }
                         # For the purposes of fast lookup, also { relative_qubit_idx : absolute_qubit_idx }
                         abs_to_rel = { idx : 0 }
-                        rel_to_abs = { 0 : idx}
+                        rel_to_abs = { 0 : idx }
                         y=0 
                         absolute_circuit = self._l[idx][i+x+1:]
                         while(len(relative_commutable_circuits)>0):
@@ -350,8 +364,8 @@ class LocalOptimizer(BasicEngine):
                                     relative_commutable_circuits=[]
                                     i_x_com=True
                                     break
-                                #Check that there is still gates in the
-                                #enginge buffer
+                                # Check that there are still gates in the
+                                # engine buffer
                                 if (y>(len(absolute_circuit)-1)):
                                     i_x_com = False
                                     relative_commutable_circuits.pop(c)
@@ -365,6 +379,7 @@ class LocalOptimizer(BasicEngine):
                                     break
                                 # Now we know the gates are equal.
                                 # We check the idcs don't contradict our dictionaries.
+                                # remember next_command = absolute_circuit[y].
                                 for qubit in next_command.qubits:
                                     # We know a and r should correspond in both dictionaries.
                                     a=qubit[0].id
