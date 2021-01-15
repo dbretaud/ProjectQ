@@ -65,7 +65,9 @@ def default_chooser(cmd, decomposition_list):
 def get_engine_list(one_qubit_gates="any",
                     two_qubit_gates=(CNOT, ),
                     other_gates=(),
-                    compiler_chooser=default_chooser):
+                    compiler_chooser=default_chooser, 
+                    optimize=True,
+                    apply_commutation=True):
     """
     Returns an engine list to compile to a restricted gate set.
 
@@ -202,17 +204,33 @@ def get_engine_list(one_qubit_gates="any",
             return True
         return False
 
+    if not optimize:
+        # If you want no optimization 
+        # (only translation into native gates)
+        return [
+            AutoReplacer(rule_set, compiler_chooser),
+            TagRemover(),
+            InstructionFilter(high_level_gates),
+            AutoReplacer(rule_set, compiler_chooser),
+            TagRemover(),
+            InstructionFilter(one_and_two_qubit_gates),
+            AutoReplacer(rule_set, compiler_chooser),
+            TagRemover(),
+            InstructionFilter(low_level_gates),
+        ]
+
+    # The normal return (does optimization)
     return [
         AutoReplacer(rule_set, compiler_chooser),
         TagRemover(),
         InstructionFilter(high_level_gates),
-        LocalOptimizer(5),
+        LocalOptimizer(5, apply_commutation=apply_commutation),
         AutoReplacer(rule_set, compiler_chooser),
         TagRemover(),
         InstructionFilter(one_and_two_qubit_gates),
-        LocalOptimizer(5),
+        LocalOptimizer(5, apply_commutation=apply_commutation),
         AutoReplacer(rule_set, compiler_chooser),
         TagRemover(),
         InstructionFilter(low_level_gates),
-        LocalOptimizer(5),
+        LocalOptimizer(5, apply_commutation=apply_commutation),
     ]
