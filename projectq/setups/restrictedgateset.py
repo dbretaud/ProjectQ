@@ -65,8 +65,7 @@ def default_chooser(cmd, decomposition_list):
 def get_engine_list(one_qubit_gates="any",
                     two_qubit_gates=(CNOT, ),
                     other_gates=(),
-                    compiler_chooser=default_chooser, 
-                    optimize=True,
+                    compiler_chooser=default_chooser,
                     apply_commutation=True):
     """
     Returns an engine list to compile to a restricted gate set.
@@ -88,7 +87,9 @@ def get_engine_list(one_qubit_gates="any",
     Example:
         get_engine_list(one_qubit_gates=(Rz, Ry, Rx, H),
                         two_qubit_gates=(CNOT,),
-                        other_gates=(TimeEvolution,))
+                        other_gates=(TimeEvolution,)
+                        compiler_chooser=chooser_Ry_reducer,
+                        apply_commutation=True)
 
     Args:
         one_qubit_gates: "any" allows any one qubit gate, otherwise provide a
@@ -108,7 +109,9 @@ def get_engine_list(one_qubit_gates="any",
                          which are equal to it. If the gate is a class, it
                          allows all instances of this class.
         compiler_chooser:function selecting the decomposition to use in the
-                         Autoreplacer engine
+                         Autoreplacer engine.
+        apply_commutation: tells the LocalOptimizer engine whether to consider 
+                        commutation rules during optimization.
     Raises:
         TypeError: If input is for the gates is not "any" or a tuple. Also if
                    element within tuple is not a class or instance of BasicGate
@@ -204,22 +207,6 @@ def get_engine_list(one_qubit_gates="any",
             return True
         return False
 
-    if not optimize:
-        # If you want no optimization 
-        # (only translation into native gates)
-        return [
-            AutoReplacer(rule_set, compiler_chooser),
-            TagRemover(),
-            InstructionFilter(high_level_gates),
-            AutoReplacer(rule_set, compiler_chooser),
-            TagRemover(),
-            InstructionFilter(one_and_two_qubit_gates),
-            AutoReplacer(rule_set, compiler_chooser),
-            TagRemover(),
-            InstructionFilter(low_level_gates),
-        ]
-
-    # The normal return (does optimization)
     return [
         AutoReplacer(rule_set, compiler_chooser),
         TagRemover(),

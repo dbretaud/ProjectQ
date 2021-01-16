@@ -293,15 +293,15 @@ class LocalOptimizer(BasicEngine):
                     # The absolute circuit is too short to match the relative_circuit
                     # i.e. if the absolute circuit is of len=3, you can't have absolute_circuit[3]
                     # only absolute_circuit[0] - absolute_circuit[2]
-                    try: relative_commutable_circuits.pop(0)
-                    except: pass
+                    if (len(relative_commutable_circuits)!=0):
+                        relative_commutable_circuits.pop(0)
                     break
                 # Check if relative_circuit command
                 # matches the absolute_circuit command
                 next_command = absolute_circuit[y]
                 if not (relative_circuit[y]._gate.__class__==next_command.gate.__class__):
-                    try: relative_commutable_circuits.pop(0)
-                    except: pass
+                    if (len(relative_commutable_circuits)!=0):
+                        relative_commutable_circuits.pop(0)
                     break
 
                 # Now we know the gates are equal.
@@ -316,15 +316,15 @@ class LocalOptimizer(BasicEngine):
                         if (abs_to_rel[a] != r):
                             # Put it in a try block because pop will fail 
                             # if relative_commutable_circuits already empty.                            
-                            try: relative_commutable_circuits.pop(0)
-                            except: pass
+                            if (len(relative_commutable_circuits)!=0):
+                                relative_commutable_circuits.pop(0)
                             break
                     if r in rel_to_abs.keys():
                         if (rel_to_abs[r] != a):
                             # Put it in a try block because pop will fail 
                             # if relative_commutable_circuits already empty.
-                            try: relative_commutable_circuits.pop(0)
-                            except: pass
+                            if (len(relative_commutable_circuits)!=0):
+                                relative_commutable_circuits.pop(0)
                             break
                     abs_to_rel[a] = r
                     rel_to_abs[r] = a
@@ -340,15 +340,15 @@ class LocalOptimizer(BasicEngine):
                         if (abs_to_rel[a] != r):
                             # Put it in a try block because pop will fail 
                             # if relative_commutable_circuits already empty.                            
-                            try: relative_commutable_circuits.pop(0)
-                            except: pass
+                            if (len(relative_commutable_circuits)!=0):
+                                relative_commutable_circuits.pop(0)
                             break
                     if r in rel_to_abs.keys():
                         if (rel_to_abs[r] != a):
                             # Put it in a try block because pop will fail 
                             # if relative_commutable_circuits already empty.                            
-                            try: relative_commutable_circuits.pop(0)
-                            except: pass
+                            if (len(relative_commutable_circuits)!=0):
+                                relative_commutable_circuits.pop(0)
                             break
                     abs_to_rel[a] = r
                     rel_to_abs[r] = a
